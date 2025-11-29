@@ -1,16 +1,14 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { RouterProvider } from "react-router-dom";
+import "./App.css";
+import Layout from "./Layout/Layout";
+import { appRouter } from "./routes/routes";
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-   <div>
-    Naukri.com replica
-   </div>
-  )
+    <RouterProvider router={appRouter}>
+      <Layout />
+    </RouterProvider>
+  );
 }
 
-export default App
+export default App;
