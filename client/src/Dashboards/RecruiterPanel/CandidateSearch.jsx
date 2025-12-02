@@ -62,7 +62,7 @@ export default function CandidateSearch() {
         </p>
       </div>
 
-      <div className="mr-15 space-y-[24px]">
+      <div className="mr-15 space-y-6">
         {/* SEARCH BAR */}
       <div className="flex items-center justify-between mr-4">
         {/* LEFT SEARCH BAR */}

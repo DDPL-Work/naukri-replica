@@ -3,9 +3,26 @@ import { Outlet } from "react-router-dom";
 
 import Header from "./Header/Header";
 import Sidebar from "./Sidebar/Sidebar";
+import { jwtDecode } from "jwt-decode";
 
 const Layout = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [role, setRole] = useState(null);
+
+  useEffect(() => {
+    const token = sessionStorage.getItem("token");
+
+    if (token) {
+      try {
+        const decoded = jwtDecode(token);
+        const userRole = decoded.role?.toUpperCase(); // ADMIN | RECRUITER
+        setRole(userRole);
+      } catch (err) {
+        console.error("Token decoding failed:", err);
+        setRole(null);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     const handler = () => {
@@ -15,10 +32,10 @@ const Layout = () => {
     return () => window.removeEventListener("resize", handler);
   }, []);
   return (
-    <div className="flex h-screen w-full bg-[#F8FAFC]">
+    <div className="flex h-screen w-full ">
       {/* Sidebar */}
       <Sidebar
-        // role={role}
+        role={role}
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
       />
@@ -27,9 +44,10 @@ const Layout = () => {
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
         <Header
+          role={role}
           toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
           sidebarOpen={isSidebarOpen}
-        //   handleLogout={handleLogout}
+          //   handleLogout={handleLogout}
         />
 
         {/* Main Content */}

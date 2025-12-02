@@ -6,12 +6,8 @@ import cors from "cors";
 import morgan from "morgan";
 import { limiter } from "./middlewares/rateLimiter.js";
 import logger from "./config/logger.js";
-import authRoutes from "./routes/auth.routes.js";
-import candidateRoutes from "./routes/candidate.routes.js";
-import adminRoutes from "./routes/admin.routes.js";
-import downloadRoutes from "./routes/download.routes.js";
-import bulkRoutes from "./routes/bulk.routes.js";
 import errorMiddleware from "./middlewares/error.middleware.js";
+import router from "./routes/index.js";
 
 const app = express();
 
@@ -32,11 +28,13 @@ app.use(morgan("combined", { stream: logger.stream }));
 app.use(limiter);
 
 // Routes
-app.use("/api/auth", authRoutes);
-app.use("/api/candidates", candidateRoutes);
-app.use("/api/admin", adminRoutes);
-app.use("/api/downloads", downloadRoutes);
-app.use("/api/bulk", bulkRoutes);
+// app.use("/api/auth", authRoutes);
+// app.use("/api/candidates", candidateRoutes);
+// app.use("/api/admin", adminRoutes);
+// app.use("/api/downloads", downloadRoutes);
+// app.use("/api/bulk", bulkRoutes);
+
+app.use('/api', router)
 
 // Health check
 app.get("/api/health", (req, res) => res.json({ status: "OK" }));

@@ -1,7 +1,10 @@
 import React from "react";
 import { LuDownload, LuSearch, LuActivity, LuArrowRight } from "react-icons/lu";
+import { Link, useNavigate } from "react-router-dom";
 
 const RecruiterDashboard = () => {
+  const navigate = useNavigate();
+
   const progress = 3;
   const total = 10;
   const percentage = (progress / total) * 100;
@@ -67,9 +70,12 @@ const RecruiterDashboard = () => {
           <p className="text-gray-500 text-sm mt-1">
             Find candidates by skill, location, and experience.
           </p>
-          <button className="mt-2 text-center border border-[#103c7f] px-4 py-2 rounded-md text-sm hover:bg-gray-50 flex items-center gap-2">
+          <Link
+            to="/recruiter/candidate-search"
+            className="mt-2 text-center border-2 font-bold transition-colors duration-500 border-[#103c7f] px-4 py-2 rounded-md text-sm  flex items-center justify-center hover:bg-[#a1db40] hover:text-[#103c7f] hover:border-0 gap-2"
+          >
             Start New Search <LuArrowRight size={14} />
-          </button>
+          </Link>
         </div>
 
         {/* Activity Logs */}
@@ -80,9 +86,12 @@ const RecruiterDashboard = () => {
           <p className="text-gray-500 text-sm mt-1">
             Track your search history and profile interactions.
           </p>
-          <button className="mt-2  border border-[#103c7f] px-4 py-2 rounded-md text-sm hover:bg-gray-50 flex items-center gap-2">
+           <Link
+            to="/recruiter/activity-logs"
+            className="mt-2 text-center  border-2 border-[#103c7f] transition-colors duration-500 px-4 py-2 rounded-md text-sm hover:bg-[#a1db40] hover:text-[#103c7f] hover:border-0 font-bold flex items-center justify-center gap-2"
+          >
             Track Activity <LuArrowRight size={14} />
-          </button>
+          </Link>
         </div>
       </div>
 
