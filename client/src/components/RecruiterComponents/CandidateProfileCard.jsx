@@ -19,7 +19,7 @@ export default function ProfileCard({ data }) {
           {/* View Profile */}
           <button
             className="flex items-center gap-2 border border-gray-300 px-4 py-2 rounded-md text-sm text-[#103c7f] hover:bg-gray-50"
-            onClick={() => navigate("/candidate-profile")}
+            onClick={() => navigate("/recruiter/candidate-profile")}
           >
             <FaEye className="text-[#103c7f] " /> View Profile
           </button>

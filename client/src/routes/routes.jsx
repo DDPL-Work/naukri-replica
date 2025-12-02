@@ -6,6 +6,10 @@ import CandidateProfilePage from "../Dashboards/RecruiterPanel/CandidateFullProf
 import ActivityLogsPage from "../Dashboards/RecruiterPanel/ActivityLogs";
 import AdminDashboard from "../Dashboards/AdminPanel/AdminDashboard";
 import Login from "../pages/Auth/Login";
+import ProtectedRoute from "./ProtectedRoute";
+import RecruiterManagement from "../Dashboards/AdminPanel/ManageRecruiter";
+import AddRecruiterForm from "../components/AdminComponents/AddRecruiterForm";
+import EditRecruiter from "../components/AdminComponents/EditRecruiter";
 
 export const appRouter = createBrowserRouter([
   {
@@ -14,9 +18,12 @@ export const appRouter = createBrowserRouter([
   },
   {
     path: "/",
-    element: <Layout />,
+    element: (
+      <ProtectedRoute>
+        <Layout />
+      </ProtectedRoute>
+    ),
     children: [
-
       // Recruiter Routes
       {
         path: "/recruiter/dashboard",
@@ -40,6 +47,22 @@ export const appRouter = createBrowserRouter([
         path: "/admin/dashboard",
         element: <AdminDashboard />,
       },
+      {
+        path: "/admin/recruiter-management",
+        element: <RecruiterManagement />,
+      },
+      {
+        path: "/admin/recruiter-management/add",
+        element: <AddRecruiterForm />,
+      },
+      {
+        path: "/admin/recruiter-management/edit/:id",
+        element: <EditRecruiter />,
+      },
     ],
+  },
+  {
+    path: "*",
+    element: <Login />,
   },
 ]);

@@ -28,7 +28,9 @@ export const registerInitialAdmin = async (req, res, next) => {
       role: "ADMIN",
     });
 
-    res.status(201).json({ message: "Admin created successfully", adminId: admin._id });
+    res
+      .status(201)
+      .json({ message: "Admin created successfully", adminId: admin._id });
   } catch (err) {
     next(err);
   }
@@ -41,14 +43,17 @@ export const registerInitialAdmin = async (req, res, next) => {
 export const registerRecruiter = async (req, res, next) => {
   try {
     if (req.user.role !== "ADMIN")
-      return res.status(403).json({ error: "Only admin can create recruiters" });
+      return res
+        .status(403)
+        .json({ error: "Only admin can create recruiters" });
 
     const { name, email, password, dailyDownloadLimit } = req.body;
     if (!name || !email || !password)
       return res.status(400).json({ error: "Name, email, password required" });
 
     const existingUser = await User.findOne({ email });
-    if (existingUser) return res.status(400).json({ error: "Email already exists" });
+    if (existingUser)
+      return res.status(400).json({ error: "Email already exists" });
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -57,7 +62,8 @@ export const registerRecruiter = async (req, res, next) => {
       email,
       password: hashedPassword,
       role: "RECRUITER",
-dailyDownloadLimit: dailyDownloadLimit || config.defaultDailyDownloadLimit,
+      dailyDownloadLimit:
+        dailyDownloadLimit || config.defaultDailyDownloadLimit,
     });
 
     await ActivityLog.create({
@@ -66,7 +72,12 @@ dailyDownloadLimit: dailyDownloadLimit || config.defaultDailyDownloadLimit,
       payload: { recruiterId: recruiter._id },
     });
 
-    res.status(201).json({ message: "Recruiter created successfully", recruiterId: recruiter._id });
+    res
+      .status(201)
+      .json({
+        message: "Recruiter created successfully",
+        recruiterId: recruiter._id,
+      });
   } catch (err) {
     next(err);
   }
@@ -78,27 +89,52 @@ dailyDownloadLimit: dailyDownloadLimit || config.defaultDailyDownloadLimit,
 export const loginController = async (req, res, next) => {
   try {
     const { email, password } = req.body;
+
     if (!email || !password)
       return res.status(400).json({ error: "Email & password required" });
 
     const user = await User.findOne({ email, active: true });
     if (!user) return res.status(401).json({ error: "Invalid credentials" });
 
+    // VALID ROLES
+    const validRoles = ["RECRUITER", "ADMIN"];
+
+    // CHECK IF ROLE IS VALID
+    if (!validRoles.includes(user.role)) {
+      return res.status(403).json({ error: "Invalid user role detected" });
+    }
+
+    // PASSWORD CHECK
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) return res.status(401).json({ error: "Invalid credentials" });
 
-   const token = jwt.sign(
-  { sub: user._id, role: user.role, email: user.email },
-  config.jwtSecret,
-  { expiresIn: config.jwtExpiresIn }
-);
+    // JWT TOKEN
+    const token = jwt.sign(
+      {
+        sub: user._id,
+        role: user.role, // recruiter | admin
+        email: user.email,
+      },
+      config.jwtSecret,
+      { expiresIn: config.jwtExpiresIn }
+    );
 
+    // LOG ACTIVITY
+    await ActivityLog.create({
+      userId: user._id,
+      type: "LOGIN",
+      payload: { ip: req.ip },
+    });
 
-    await ActivityLog.create({ userId: user._id, type: "LOGIN", payload: { ip: req.ip } });
-
+    // RESPONSE
     res.json({
       token,
-      user: { id: user._id, name: user.name, email: user.email, role: user.role },
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
     });
   } catch (err) {
     next(err);
