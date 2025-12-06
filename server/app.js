@@ -8,6 +8,7 @@ import { limiter } from "./middlewares/rateLimiter.js";
 import logger from "./config/logger.js";
 import errorMiddleware from "./middlewares/error.middleware.js";
 import router from "./routes/index.js";
+import { ensureIndex } from "./services/elasticsearch.service.js";
 
 const app = express();
 
@@ -18,7 +19,14 @@ app.use(helmet());
 app.use(cors({ origin: process.env.FRONTEND_URL || "*", credentials: true }));
 
 // JSON + URL-encoded body parser
-app.use(express.json({ limit: "10mb" }));
+// app.use(express.json({ limit: "10mb" }));
+// app.use(express.urlencoded({ extended: true }));
+
+// JSON body parser — skip for multipart (file uploads)
+app.use((req, res, next) => {
+  if (req.is("multipart/form-data")) return next();
+  express.json({ limit: "10mb" })(req, res, next);
+});
 app.use(express.urlencoded({ extended: true }));
 
 // Logging
@@ -34,12 +42,15 @@ app.use(limiter);
 // app.use("/api/downloads", downloadRoutes);
 // app.use("/api/bulk", bulkRoutes);
 
-app.use('/api', router)
+app.use("/api", router);
 
 // Health check
 app.get("/api/health", (req, res) => res.json({ status: "OK" }));
 
 // Global error handler
 app.use(errorMiddleware);
+
+// CREATE INDEX IF NOT EXISTS
+await ensureIndex();
 
 export default app;

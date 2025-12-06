@@ -23,12 +23,22 @@ export const updateRecruiter = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { dailyDownloadLimit, active } = req.body;
-    const updated = await User.findByIdAndUpdate(id, { $set: { ...(dailyDownloadLimit !== undefined ? { dailyDownloadLimit } : {}), ...(active !== undefined ? { active } : {}) } }, { new: true });
+
+    const updated = await User.findByIdAndUpdate(
+      id,
+      { $set: {
+          ...(dailyDownloadLimit !== undefined ? { dailyDownloadLimit } : {}),
+          ...(active !== undefined ? { active } : {})
+      }},
+      { new: true }
+    );
+
     res.json({ recruiter: updated });
   } catch (err) {
     next(err);
   }
 };
+
 
 /**
  * Get today's downloads per recruiter (summary)
@@ -53,35 +63,148 @@ export const downloadsSummary = async (req, res, next) => {
 };
 
 /**
- * Basic analytics: counts
+ * Advanced Analytics Controller
  */
 export const analytics = async (req, res, next) => {
   try {
+    // -------------------- BASIC COUNTS --------------------
     const totalCandidates = await Candidate.countDocuments();
-    const today = new Date(); today.setHours(0,0,0,0);
-    const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
 
-    const todayCount = await Candidate.countDocuments({ createdAt: { $gte: today } });
-    const last7 = new Date(); last7.setDate(last7.getDate() - 7);
-    const last7Count = await Candidate.countDocuments({ createdAt: { $gte: last7 } });
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-    // top locations
+    const last7 = new Date();
+    last7.setDate(last7.getDate() - 7);
+
+    const todayCount = await Candidate.countDocuments({
+      createdAt: { $gte: today },
+    });
+
+    const last7Count = await Candidate.countDocuments({
+      createdAt: { $gte: last7 },
+    });
+
+    // -------------------- TOP LOCATIONS --------------------
     const topLocations = await Candidate.aggregate([
-      { $group: { _id: "$location", count: { $sum: 1 } } },
+      {
+        $match: {
+          location: { $exists: true, $ne: null, $ne: "" },
+        },
+      },
+      {
+        $group: {
+          _id: "$location",
+          count: { $sum: 1 },
+        },
+      },
       { $sort: { count: -1 } },
-      { $limit: 10 }
+      { $limit: 10 },
     ]);
 
-    // top skills - unwind skills array
+    // -------------------- TOP SKILLS --------------------
     const topSkills = await Candidate.aggregate([
+      {
+        $match: { skills: { $exists: true, $ne: null } }
+      },
+      {
+        $project: {
+          skills: {
+            $cond: {
+              if: { $isArray: "$skills" },
+              then: "$skills",
+              else: []
+            }
+          }
+        }
+      },
       { $unwind: "$skills" },
-      { $group: { _id: "$skills", count: { $sum: 1 } } },
+      {
+        $group: {
+          _id: "$skills",
+          count: { $sum: 1 },
+        }
+      },
       { $sort: { count: -1 } },
       { $limit: 10 }
     ]);
 
-    res.json({ totalCandidates, todayCount, last7Count, topLocations, topSkills });
+    // -------------------- RESUME SOURCE ANALYTICS --------------------
+    const portalStats = await Candidate.aggregate([
+      {
+        $match: { portal: { $exists: true, $ne: null, $ne: "" } }
+      },
+      {
+        $group: {
+          _id: "$portal",
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { count: -1 } }
+    ]);
+
+    // -------------------- DAILY UPLOAD TREND (LAST 30 DAYS) --------------------
+    const last30 = new Date();
+    last30.setDate(last30.getDate() - 30);
+
+    const last30Trend = await Candidate.aggregate([
+      {
+        $match: { createdAt: { $gte: last30 } }
+      },
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: "%Y-%m-%d", date: "$createdAt" }
+          },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
+
+    // -------------------- TOP JOB TITLES --------------------
+    const topDesignations = await Candidate.aggregate([
+      {
+        $match: { designation: { $exists: true, $ne: null, $ne: "" } }
+      },
+      {
+        $group: {
+          _id: "$designation",
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { count: -1 } },
+      { $limit: 10 }
+    ]);
+
+    // -------------------- EXPERIENCE RANGE BUCKETS --------------------
+    const experienceBuckets = await Candidate.aggregate([
+      {
+        $bucket: {
+          groupBy: "$experience",
+          boundaries: [0, 2, 5, 10, 20, 50],
+          default: "Unknown",
+          output: { count: { $sum: 1 } }
+        }
+      }
+    ]);
+
+    // -------------------- SEND ALL IN ONE RESPONSE --------------------
+    res.json({
+      totalCandidates,
+      todayCount,
+      last7Count,
+
+      topLocations,
+      topSkills,
+
+      portalStats,
+      last30Trend,
+      topDesignations,
+      experienceBuckets,
+    });
   } catch (err) {
+    console.error("Analytics error:", err);
     next(err);
   }
 };
+

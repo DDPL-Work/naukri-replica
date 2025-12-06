@@ -69,7 +69,7 @@ export default function Sidebar({ role }) {
     {
       id: "bulk-upload",
       to: "/admin/bulk-upload",
-      label: "Bulk Upload",
+      label: "Candidate Management",
       icon: MdCloudUpload,
     },
     {
@@ -109,7 +109,7 @@ export default function Sidebar({ role }) {
       </div>
 
       {/* MENU */}
-      <nav className="flex-1 px-4 py-6">
+      <nav className="flex-1 px-3 py-6">
         <ul className="space-y-2">
           {menu.map((item) => {
             const Icon = item.icon;

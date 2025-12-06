@@ -2,10 +2,7 @@ import React, { useEffect, useState } from "react";
 import { FiSearch, FiEdit2, FiXCircle } from "react-icons/fi";
 import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import {
-  listRecruiters,
-  updateRecruiter,
-} from "../../features/slices/adminSlice";
+import { listRecruiters, updateRecruiter } from "../../features/slices/adminSlice";
 import { jwtDecode } from "jwt-decode";
 import axios from "axios";
 import toast from "react-hot-toast";
@@ -21,9 +18,7 @@ export default function RecruiterManagement() {
   const [statusFilter, setStatusFilter] = useState("All Status");
   const [isAdmin, setIsAdmin] = useState(false);
 
-  // -------------------------------
-  // VERIFY ADMIN + SET TOKEN
-  // -------------------------------
+  // ADMIN AUTH CHECK
   useEffect(() => {
     const token = sessionStorage.getItem("token");
     if (!token) return;
@@ -36,21 +31,17 @@ export default function RecruiterManagement() {
       } else {
         toast.error("Access denied — Admin only");
       }
-    } catch (err) {
+    } catch {
       setIsAdmin(false);
     }
   }, []);
 
-  // -------------------------------
   // FETCH RECRUITERS
-  // -------------------------------
   useEffect(() => {
     dispatch(listRecruiters());
   }, []);
 
-  // -------------------------------
-  // TOAST ALERTS FOR LIST & UPDATE
-  // -------------------------------
+  // TOASTS
   useEffect(() => {
     if (listError) toast.error(listError);
   }, [listError]);
@@ -60,14 +51,12 @@ export default function RecruiterManagement() {
     if (updateError) toast.error(updateError);
   }, [updateSuccess, updateError]);
 
-  // -------------------------------
-  // BADGE COMPONENT
-  // -------------------------------
+  // STATUS BADGE STYLE
   const badge = (active) => {
     const isActive = active === true;
     return (
       <span
-        className={`px-3 py-0.5 text-xs font-[Calibri] rounded-full ${
+        className={`px-3 py-0.5 rounded-full text-xs font-normal font-[Calibri] leading-4 ${
           isActive ? "bg-lime-400 text-black" : "bg-red-600 text-white"
         }`}
       >
@@ -76,9 +65,7 @@ export default function RecruiterManagement() {
     );
   };
 
-  // -------------------------------
-  // FILTERED DATA
-  // -------------------------------
+  // FILTERING
   const filteredRecruiters = recruiters.filter((r) => {
     const matchSearch =
       r.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -94,27 +81,16 @@ export default function RecruiterManagement() {
     return matchSearch && matchStatus;
   });
 
-  // -------------------------------
-  // TOGGLE ACTIVE/INACTIVE
-  // -------------------------------
-  const toggleStatus = async (id, currentStatus) => {
-    dispatch(
-      updateRecruiter({
-        id,
-        updates: { active: !currentStatus },
-      })
-    );
+  // UPDATE STATUS
+  const toggleStatus = (id, currentStatus) => {
+    dispatch(updateRecruiter({ id, updates: { active: !currentStatus } }));
   };
 
-  // -------------------------------
   // BLOCK NON-ADMINS
-  // -------------------------------
   if (!isAdmin) {
     return (
       <div className="p-10 text-center">
-        <p className="text-2xl text-red-600 font-bold">
-          Access Denied — Admin Only
-        </p>
+        <p className="text-2xl text-red-600 font-bold">Access Denied — Admin Only</p>
       </div>
     );
   }
@@ -123,51 +99,50 @@ export default function RecruiterManagement() {
     <div className="w-full min-h-screen bg-white p-10">
       {/* PAGE TITLE */}
       <div className="flex justify-between items-center w-full mb-3">
-        <h1 className="text-[40px] leading-[60px] font-bold font-serif text-black">
+        <h1 className="text-black text-4xl font-bold font-serif leading-[60px]">
           Recruiter Management
         </h1>
 
         <Link
           to="/admin/recruiter-management/add"
-          className="bg-lime-400 px-4 py-2 rounded-md font-[Calibri] text-[16px] text-black"
+          className="bg-lime-400 px-4 py-2 rounded-md 
+            text-black text-base font-normal font-[Calibri]"
         >
           Add Recruiter
         </Link>
       </div>
 
-      <p className="text-[20px] text-[#808080] font-[Calibri] leading-6 mb-8">
+      {/* SUBTITLE */}
+      <p className="text-zinc-500 text-xl font-normal font-[Calibri] leading-6 mb-8">
         Manage recruiter accounts and permissions
       </p>
 
       {/* FILTER BOX */}
       <div className="bg-white border border-gray-300 rounded-lg p-6 mb-8">
-        <h2 className="text-[24px] font-bold font-[Calibri] leading-6 mb-6">
+        <h2 className="text-black text-2xl font-bold font-[Calibri] leading-6 mb-6">
           Filters
         </h2>
 
         <div className="flex gap-4 flex-wrap">
-          {/* Search Field */}
+          {/* SEARCH */}
           <div className="relative flex-1 min-w-[300px]">
-            <FiSearch
-              className="absolute left-3 top-3 text-gray-500"
-              size={18}
-            />
+            <FiSearch className="absolute left-3 top-3 text-gray-500" size={18} />
             <input
               type="text"
               placeholder="Search by name or email..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full h-10 bg-[#FCFBF8] rounded-md pl-10 pr-4 border border-gray-300 
-                         text-sm font-[Calibri] text-[#808080]"
+                text-zinc-500 text-sm font-normal font-[Calibri]"
             />
           </div>
 
-          {/* Status Dropdown */}
+          {/* STATUS DROPDOWN */}
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
             className="w-[180px] h-10 bg-[#FCFBF8] px-3 py-2 border border-gray-300 rounded-md 
-                       text-sm text-[#808080] font-[Calibri]"
+                text-zinc-500 text-sm font-normal font-[Calibri] leading-5"
           >
             <option>All Status</option>
             <option>Active</option>
@@ -180,7 +155,9 @@ export default function RecruiterManagement() {
       <div className="bg-white border border-gray-300 rounded-lg overflow-hidden">
         {/* TABLE HEADER */}
         <div className="bg-[#10407E] text-white px-8 py-3">
-          <div className="grid grid-cols-12 items-center font-[Calibri] text-sm font-bold uppercase">
+          <div className="grid grid-cols-12 items-center 
+            text-white text-sm font-bold font-[Calibri] uppercase leading-5 tracking-wide"
+          >
             <div className="col-span-3">Recruiter Name</div>
             <div className="col-span-3">Email</div>
             <div className="col-span-2">Status</div>
@@ -193,42 +170,37 @@ export default function RecruiterManagement() {
         {listLoading ? (
           <div className="p-6 text-center">Loading recruiters...</div>
         ) : filteredRecruiters.length === 0 ? (
-          <div className="p-6 text-center text-gray-500">
-            No recruiters found
-          </div>
+          <div className="p-6 text-center text-gray-500">No recruiters found</div>
         ) : (
           filteredRecruiters.map((r) => (
-            <div
-              key={r._id}
-              className="border-b border-gray-200 hover:bg-gray-50 transition"
-            >
+            <div key={r._id} className="border-b border-gray-200 hover:bg-gray-50 transition">
               <div className="grid grid-cols-12 items-center px-8 py-3">
+
                 {/* NAME */}
-                <div className="col-span-3 text-sm font-[Calibri] text-black">
+                <div className="col-span-3 text-black text-sm font-normal font-[Calibri] leading-5">
                   {r.name}
                 </div>
 
                 {/* EMAIL */}
-                <div className="col-span-3 text-sm font-[Calibri] text-gray-600">
+                <div className="col-span-3 text-zinc-500 text-base font-normal font-[Calibri] leading-6">
                   {r.email}
                 </div>
 
                 {/* STATUS */}
                 <div className="col-span-2">{badge(r.active)}</div>
 
-                {/* DAILY LIMIT (read-only now) */}
-                <div className="col-span-2 text-sm font-[Calibri]">
+                {/* DAILY LIMIT */}
+                <div className="col-span-2 text-black text-xs font-bold font-[Calibri] leading-4">
                   {r.dailyDownloadLimit}
                 </div>
 
                 {/* ACTIONS */}
                 <div className="col-span-2 flex items-center justify-center gap-3">
-                  {/* EDIT BUTTON */}
+                  {/* EDIT */}
                   <button
-                    onClick={() =>
-                      navigate(`/admin/recruiter-management/edit/${r._id}`)
-                    }
-                    className="text-gray-600 bg-gray-200 w-6 h-6 rounded-sm flex items-center justify-center hover:bg-orange-200 hover:text-black"
+                    onClick={() => navigate(`/admin/recruiter-management/edit/${r._id}`)}
+                    className="w-6 h-6 flex items-center justify-center bg-gray-200 
+                      text-black text-xs font-normal font-[Calibri] leading-4 rounded-sm hover:bg-orange-200"
                   >
                     <FiEdit2 size={15} />
                   </button>
@@ -237,11 +209,12 @@ export default function RecruiterManagement() {
                   <button
                     disabled={updateLoading}
                     onClick={() => toggleStatus(r._id, r.active)}
-                    className={`flex items-center gap-1 px-3 py-1 rounded border text-xs font-[Calibri] bg-[#FCFBF8] ${
-                      r.active
-                        ? "border-red-300 text-red-600"
-                        : "border-green-300 text-green-700"
-                    }`}
+                    className={`flex items-center gap-1 px-3 py-1 rounded border text-xs font-normal font-[Calibri] leading-4
+                      ${
+                        r.active
+                          ? "text-red-600 border-red-300"
+                          : "text-green-700 border-green-300"
+                      }`}
                   >
                     <FiXCircle size={14} />
                     {r.active ? "Deactivate" : "Activate"}
