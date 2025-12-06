@@ -11,13 +11,13 @@ const ProtectedRoute = ({ children }) => {
 
   try {
     const decoded = jwtDecode(token);
-    const userRole = decoded.role?.toLowerCase();  // "recruiter" | "admin"
+    const userRole = decoded.role?.toLowerCase(); // "recruiter" | "admin"
 
     // USER ALLOWED PATHS
     const recruiterPaths = [
       "/recruiter/dashboard",
       "/recruiter/candidate-search",
-      "/recruiter/candidate-profile",
+      "/recruiter/candidate-profile/:id",
       "/recruiter/activity-logs",
     ];
 
@@ -28,6 +28,7 @@ const ProtectedRoute = ({ children }) => {
       "/admin/recruiter-management/edit/:id",
       "/admin/analytics",
       "/admin/bulk-upload",
+      "/admin/add-candidate",
       "/admin/activity-logs",
     ];
 
@@ -46,7 +47,6 @@ const ProtectedRoute = ({ children }) => {
 
     // If valid, allow page
     return children;
-
   } catch (error) {
     // Invalid token → force logout
     sessionStorage.clear();

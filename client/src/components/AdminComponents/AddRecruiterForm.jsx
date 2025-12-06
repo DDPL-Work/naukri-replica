@@ -30,9 +30,7 @@ export default function AddRecruiterForm() {
 
   const statusOptions = ["Active", "Inactive"];
 
-  // -------------------------------
-  // VERIFY ADMIN FROM TOKEN
-  // -------------------------------
+  // VERIFY ADMIN
   useEffect(() => {
     const token = sessionStorage.getItem("token");
 
@@ -58,9 +56,7 @@ export default function AddRecruiterForm() {
     }
   }, []);
 
-  // -------------------------------
-  // CLIENT VALIDATION
-  // -------------------------------
+  // VALIDATION
   const validate = () => {
     const newErrors = {};
 
@@ -69,6 +65,7 @@ export default function AddRecruiterForm() {
     if (!formData.password.trim()) newErrors.password = "Password is required";
     if (formData.password.length < 8)
       newErrors.password = "Password must be at least 8 characters";
+
     if (!formData.dailyLimit || isNaN(Number(formData.dailyLimit))) {
       newErrors.dailyLimit = "Daily limit must be a valid number";
     }
@@ -83,16 +80,10 @@ export default function AddRecruiterForm() {
     return true;
   };
 
-  // -------------------------------
-  // CHANGE HANDLER
-  // -------------------------------
   const changeHandler = (key, value) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
   };
 
-  // -------------------------------
-  // SUBMIT HANDLER
-  // -------------------------------
   const handleSubmit = () => {
     if (!validate()) return;
 
@@ -108,9 +99,6 @@ export default function AddRecruiterForm() {
     dispatch(registerRecruiter(payload));
   };
 
-  // -------------------------------
-  // SUCCESS UI EFFECT
-  // -------------------------------
   useEffect(() => {
     if (success) {
       toast.success("Recruiter created successfully!");
@@ -133,9 +121,6 @@ export default function AddRecruiterForm() {
     }
   }, [success, error]);
 
-  // -------------------------------
-  // NOT ADMIN BLOCK
-  // -------------------------------
   if (!isAdmin) {
     return (
       <div className="p-8 text-center">
@@ -146,18 +131,16 @@ export default function AddRecruiterForm() {
     );
   }
 
-  // -------------------------------
-  // FORM UI
-  // -------------------------------
   return (
     <div className="w-full min-h-screen bg-white px-8">
+
       {/* PAGE TITLE */}
       <div className="w-full flex flex-col text-left mb-2">
         <h1 className="text-black text-4xl font-bold font-serif leading-[60px]">
           Recruiter Management
         </h1>
 
-        <p className="text-[#808080] text-xl font-normal font-[Calibri] leading-6 mb-10 max-w-[650px]">
+        <p className="text-zinc-500 text-xl font-normal font-[Calibri] leading-6 mb-10 max-w-[650px]">
           Manage recruiter accounts and permissions
         </p>
       </div>
@@ -168,11 +151,11 @@ export default function AddRecruiterForm() {
           Add New Recruiter
         </h2>
 
-        {/* FORM GRID */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-14 gap-y-10">
+
           {/* FULL NAME */}
           <div>
-            <label className="block text-black text-sm font-[Calibri] mb-1.5">
+            <label className="block text-black text-sm font-normal font-[Calibri] leading-4 mb-1.5">
               Full Name *
             </label>
             <input
@@ -180,7 +163,8 @@ export default function AddRecruiterForm() {
               value={formData.fullName}
               placeholder="Enter recruiter's full name"
               onChange={(e) => changeHandler("fullName", e.target.value)}
-              className="w-full h-10 bg-[#FCFBF8] border border-[#E0E5EB] rounded-md px-3 text-sm font-[Calibri] text-[#808080]"
+              className="w-full h-10 bg-[#FCFBF8] border border-[#E0E5EB] rounded-md 
+              px-3 text-sm font-normal font-[Calibri] text-zinc-500"
             />
             {errors.fullName && (
               <p className="text-red-600 text-xs mt-1">{errors.fullName}</p>
@@ -189,7 +173,7 @@ export default function AddRecruiterForm() {
 
           {/* EMAIL */}
           <div>
-            <label className="block text-black text-sm font-[Calibri] mb-1.5">
+            <label className="block text-black text-sm font-normal font-[Calibri] leading-4 mb-1.5">
               Email Address *
             </label>
             <input
@@ -197,7 +181,8 @@ export default function AddRecruiterForm() {
               value={formData.email}
               placeholder="recruiter@company.com"
               onChange={(e) => changeHandler("email", e.target.value)}
-              className="w-full h-10 bg-[#FCFBF8] border border-[#E0E5EB] rounded-md px-3 text-sm font-[Calibri] text-[#808080]"
+              className="w-full h-10 bg-[#FCFBF8] border border-[#E0E5EB] rounded-md 
+              px-3 text-sm font-normal font-[Calibri] text-zinc-500"
             />
             {errors.email && (
               <p className="text-red-600 text-xs mt-1">{errors.email}</p>
@@ -206,7 +191,7 @@ export default function AddRecruiterForm() {
 
           {/* PASSWORD */}
           <div>
-            <label className="block text-black text-sm font-[Calibri] mb-1.5">
+            <label className="block text-black text-sm font-normal font-[Calibri] leading-4 mb-1.5">
               Password *
             </label>
             <div className="relative">
@@ -215,7 +200,8 @@ export default function AddRecruiterForm() {
                 value={formData.password}
                 placeholder="Enter password"
                 onChange={(e) => changeHandler("password", e.target.value)}
-                className="w-full h-10 bg-[#FCFBF8] border border-[#E0E5EB] rounded-md px-3 text-sm font-[Calibri] text-[#808080]"
+                className="w-full h-10 bg-[#FCFBF8] border border-[#E0E5EB] rounded-md 
+                px-3 text-sm font-normal font-[Calibri] text-zinc-500"
               />
               <button
                 type="button"
@@ -225,42 +211,45 @@ export default function AddRecruiterForm() {
                 {showPassword ? <FiEyeOff size={18} /> : <FiEye size={18} />}
               </button>
             </div>
+
             {errors.password && (
               <p className="text-red-600 text-xs mt-1">{errors.password}</p>
             )}
-            <p className="text-[#808080] text-xs font-[Tahoma] mt-1">
+            <p className="text-zinc-500 text-sm font-normal font-[Tahoma] leading-5 mt-1">
               Minimum 8 characters
             </p>
           </div>
 
           {/* DAILY LIMIT */}
           <div>
-            <label className="block text-black text-sm font-[Calibri] mb-1.5">
+            <label className="block text-black text-sm font-normal font-[Calibri] leading-4 mb-1.5">
               Daily Download Limit *
             </label>
             <input
               type="number"
               value={formData.dailyLimit}
               onChange={(e) => changeHandler("dailyLimit", e.target.value)}
-              className="w-full h-10 bg-[#FCFBF8] border border-[#E0E5EB] rounded-md px-3 text-sm font-[Calibri]"
+              className="w-full h-10 bg-[#FCFBF8] border border-[#E0E5EB] rounded-md 
+              px-3 text-sm font-normal font-[Calibri] text-black"
             />
             {errors.dailyLimit && (
               <p className="text-red-600 text-xs mt-1">{errors.dailyLimit}</p>
             )}
-            <p className="text-[#808080] text-xs font-[Calibri] mt-1">
+            <p className="text-zinc-500 text-sm font-normal font-[Calibri] leading-5 mt-1">
               Maximum number of resume downloads per day
             </p>
           </div>
 
           {/* STATUS */}
           <div>
-            <label className="block text-black text-sm font-[Calibri] mb-1.5">
+            <label className="block text-black text-sm font-normal font-[Calibri] leading-4 mb-1.5">
               Status *
             </label>
             <select
               value={formData.status}
               onChange={(e) => changeHandler("status", e.target.value)}
-              className="w-full h-10 bg-[#FCFBF8] border border-[#E0E5EB] rounded-md px-3 text-sm font-[Calibri] text-[#808080]"
+              className="w-full h-10 bg-[#FCFBF8] border border-[#E0E5EB] rounded-md 
+              px-3 text-sm font-normal font-[Calibri] text-zinc-500 leading-5"
             >
               {statusOptions.map((s, i) => (
                 <option key={i} value={s}>
@@ -280,7 +269,7 @@ export default function AddRecruiterForm() {
               loading ? "opacity-50 cursor-not-allowed" : ""
             }`}
           >
-            <span className="text-black text-sm font-[Calibri] leading-5">
+            <span className="text-black text-sm font-normal font-[Calibri] leading-5">
               {loading ? "Creating..." : "Create Recruiter"}
             </span>
           </button>

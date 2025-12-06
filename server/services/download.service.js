@@ -10,6 +10,7 @@ export const canDownloadResume = async (userId) => {
 
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
+
   const todayEnd = new Date();
   todayEnd.setHours(23, 59, 59, 999);
 
@@ -18,12 +19,16 @@ export const canDownloadResume = async (userId) => {
     downloadedAt: { $gte: todayStart, $lte: todayEnd },
   });
 
-  return count < user.dailyDownloadLimit;
+  return count < (user.dailyDownloadLimit || 0);
 };
 
 /**
- * Log a download/view action
+ * Log resume view action
  */
 export const logDownload = async (userId, candidateId) => {
-  await DownloadLog.create({ userId, candidateId, downloadedAt: new Date() });
+  await DownloadLog.create({
+    userId,
+    candidateId,
+    downloadedAt: new Date(),
+  });
 };

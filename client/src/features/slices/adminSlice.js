@@ -71,7 +71,15 @@ export const updateRecruiter = createAsyncThunk(
 
       const res = await axios.patch(
         `${API_BASE}/admin/recruiters/${id}`,
-        updates,
+        {
+          ...(updates.dailyDownloadLimit !== undefined
+            ? { dailyDownloadLimit: updates.dailyDownloadLimit }
+            : {}),
+          ...(updates.dailyViewLimit !== undefined
+            ? { dailyViewLimit: updates.dailyViewLimit }
+            : {}),
+          ...(updates.active !== undefined ? { active: updates.active } : {}),
+        },
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -89,11 +97,62 @@ export const updateRecruiter = createAsyncThunk(
   }
 );
 
+
+// -------------------------------
+// ADMIN ANALYTICS
+// -------------------------------
+export const fetchAnalytics = createAsyncThunk(
+  "analytics/fetchAnalytics",
+  async (_, { rejectWithValue, getState }) => {
+    try {
+      const token = getState()?.auth?.token;
+
+      const res = await axios.get(`${API_BASE}/admin/analytics`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      return res.data;
+    } catch (err) {
+      return rejectWithValue(
+        err.response?.data?.error || "Failed to fetch analytics"
+      );
+    }
+  }
+);
+
+// -------------------------------
+// ADD CANDIDATE MANUALLY (ADMIN ONLY)
+// -------------------------------
+export const addCandidateManual = createAsyncThunk(
+  "admin/addCandidateManual",
+  async (formData, { rejectWithValue, getState }) => {
+    try {
+      const token = getState()?.auth?.token;
+
+      const res = await axios.post(`${API_BASE}/admin/add-manual`, formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      return res.data.candidate;
+    } catch (err) {
+      return rejectWithValue(
+        err.response?.data?.error ||
+          err.response?.data?.message ||
+          "Failed to add candidate"
+      );
+    }
+  }
+);
+
 // -------------------------------
 // SLICE
 // -------------------------------
-const recruiterSlice = createSlice({
-  name: "recruiter",
+const adminSlice = createSlice({
+  name: "admin",
 
   initialState: {
     loading: false,
@@ -112,6 +171,17 @@ const recruiterSlice = createSlice({
     updateLoading: false,
     updateSuccess: false,
     updateError: null,
+
+    // ANALYTICS
+    analyticsLoading: false,
+    analyticsError: null,
+    analyticsData: null,
+
+    // Manual candidate add
+    manualAddLoading: false,
+    manualAddSuccess: false,
+    manualAddError: null,
+    newCandidate: null,
   },
 
   reducers: {
@@ -126,6 +196,19 @@ const recruiterSlice = createSlice({
       state.updateLoading = false;
       state.updateSuccess = false;
       state.updateError = null;
+    },
+
+    resetAnalyticsState: (state) => {
+      state.analyticsLoading = false;
+      state.analyticsError = null;
+      state.analyticsData = null;
+    },
+
+    resetManualAddState: (state) => {
+      state.manualAddLoading = false;
+      state.manualAddSuccess = false;
+      state.manualAddError = null;
+      state.newCandidate = null;
     },
   },
 
@@ -164,6 +247,7 @@ const recruiterSlice = createSlice({
       .addCase(listRecruiters.fulfilled, (state, action) => {
         state.listLoading = false;
         state.recruiters = action.payload;
+        state.recruiterCount = action.payload.length;
       })
 
       .addCase(listRecruiters.rejected, (state, action) => {
@@ -194,11 +278,53 @@ const recruiterSlice = createSlice({
         state.updateLoading = false;
         state.updateSuccess = false;
         state.updateError = action.payload;
+      })
+
+      // -------------------------------
+      // ANALYTICS
+      // -------------------------------
+      .addCase(fetchAnalytics.pending, (state) => {
+        state.analyticsLoading = true;
+        state.analyticsError = null;
+      })
+      .addCase(fetchAnalytics.fulfilled, (state, action) => {
+        state.analyticsLoading = false;
+        state.analyticsData = action.payload;
+      })
+      .addCase(fetchAnalytics.rejected, (state, action) => {
+        state.analyticsLoading = false;
+        state.analyticsError = action.payload;
+      })
+
+      // -------------------------------
+      // ADD CANDIDATE MANUALLY
+      // -------------------------------
+      .addCase(addCandidateManual.pending, (state) => {
+        state.manualAddLoading = true;
+        state.manualAddSuccess = false;
+        state.manualAddError = null;
+        state.newCandidate = null;
+      })
+
+      .addCase(addCandidateManual.fulfilled, (state, action) => {
+        state.manualAddLoading = false;
+        state.manualAddSuccess = true;
+        state.newCandidate = action.payload;
+      })
+
+      .addCase(addCandidateManual.rejected, (state, action) => {
+        state.manualAddLoading = false;
+        state.manualAddSuccess = false;
+        state.manualAddError = action.payload;
       });
   },
 });
 
-export const { resetRecruiterState, resetRecruiterUpdateState } =
-  recruiterSlice.actions;
+export const {
+  resetRecruiterState,
+  resetRecruiterUpdateState,
+  resetAnalyticsState,
+  resetManualAddState,
+} = adminSlice.actions;
 
-export default recruiterSlice.reducer;
+export default adminSlice.reducer;

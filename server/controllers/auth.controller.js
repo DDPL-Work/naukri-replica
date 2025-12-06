@@ -28,9 +28,10 @@ export const registerInitialAdmin = async (req, res, next) => {
       role: "ADMIN",
     });
 
-    res
-      .status(201)
-      .json({ message: "Admin created successfully", adminId: admin._id });
+    res.status(201).json({
+      message: "Admin created successfully",
+      adminId: admin._id,
+    });
   } catch (err) {
     next(err);
   }
@@ -42,12 +43,12 @@ export const registerInitialAdmin = async (req, res, next) => {
  */
 export const registerRecruiter = async (req, res, next) => {
   try {
-    if (req.user.role !== "ADMIN")
-      return res
-        .status(403)
-        .json({ error: "Only admin can create recruiters" });
+    if (req.user.role !== "ADMIN") {
+      return res.status(403).json({ error: "Only admin can create recruiters" });
+    }
 
     const { name, email, password, dailyDownloadLimit } = req.body;
+
     if (!name || !email || !password)
       return res.status(400).json({ error: "Name, email, password required" });
 
@@ -63,7 +64,7 @@ export const registerRecruiter = async (req, res, next) => {
       password: hashedPassword,
       role: "RECRUITER",
       dailyDownloadLimit:
-        dailyDownloadLimit || config.defaultDailyDownloadLimit,
+        dailyDownloadLimit || config.defaultDailyDownloadLimit, // <-- APPLY DEFAULT LIMIT
     });
 
     await ActivityLog.create({
@@ -72,12 +73,10 @@ export const registerRecruiter = async (req, res, next) => {
       payload: { recruiterId: recruiter._id },
     });
 
-    res
-      .status(201)
-      .json({
-        message: "Recruiter created successfully",
-        recruiterId: recruiter._id,
-      });
+    res.status(201).json({
+      message: "Recruiter created successfully",
+      recruiterId: recruiter._id,
+    });
   } catch (err) {
     next(err);
   }
@@ -99,7 +98,6 @@ export const loginController = async (req, res, next) => {
     // VALID ROLES
     const validRoles = ["RECRUITER", "ADMIN"];
 
-    // CHECK IF ROLE IS VALID
     if (!validRoles.includes(user.role)) {
       return res.status(403).json({ error: "Invalid user role detected" });
     }
@@ -112,7 +110,7 @@ export const loginController = async (req, res, next) => {
     const token = jwt.sign(
       {
         sub: user._id,
-        role: user.role, // recruiter | admin
+        role: user.role,
         email: user.email,
       },
       config.jwtSecret,
@@ -126,7 +124,7 @@ export const loginController = async (req, res, next) => {
       payload: { ip: req.ip },
     });
 
-    // RESPONSE
+    // FINAL LOGIN RESPONSE INCLUDING DAILY DOWNLOAD LIMIT
     res.json({
       token,
       user: {
@@ -134,6 +132,8 @@ export const loginController = async (req, res, next) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        active: user.active,
+        dailyDownloadLimit: user.dailyDownloadLimit, // <-- ADDED FOR FRONTEND ACCESS
       },
     });
   } catch (err) {

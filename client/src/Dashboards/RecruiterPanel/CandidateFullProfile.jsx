@@ -1,8 +1,119 @@
-import React from "react";
-import { FaEnvelope, FaPhone, FaSuitcase, FaUpload } from "react-icons/fa";
+import React, { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+
+import { FaEnvelope, FaPhone, FaSuitcase, FaDownload } from "react-icons/fa";
 import { GrLocation } from "react-icons/gr";
 
+import {
+  downloadResumeThunk,
+  getCandidateById,
+  updateCandidateFeedback,
+} from "../../features/slices/recruiterSlice";
+import toast from "react-hot-toast";
+
 export default function CandidateProfilePage() {
+  const { id } = useParams();
+  const dispatch = useDispatch();
+
+  const {
+    candidateLoading,
+    candidateError,
+    candidateData: candidate,
+  } = useSelector((state) => state.recruiter);
+
+  const [remark, setRemark] = useState("");
+
+  // Fetch candidate data
+  useEffect(() => {
+    if (id) {
+      dispatch(getCandidateById(id));
+    }
+  }, [id, dispatch]);
+
+  // Populate remarks after loading candidate
+  useEffect(() => {
+    if (candidate) setRemark(candidate.remark || "");
+  }, [candidate]);
+
+  // Save Feedback / Remark
+  const saveRemarks = () => {
+    dispatch(updateCandidateFeedback({ id, remark }))
+      .unwrap()
+      .then(() => toast.success("Remarks Updated"))
+      .catch(() => toast.error("Failed to update remarks"));
+  };
+
+  if (candidateLoading) return <p>Loading...</p>;
+  if (candidateError) return <p>Error: {candidateError}</p>;
+  if (!candidate) return <p>Candidate Not Found</p>;
+
+  // -----------------------------------------------------
+  // NORMALIZED FIELDS BASED ON YOUR CANDIDATE MODEL
+  // -----------------------------------------------------
+  const fullName = candidate.name || "Unknown";
+
+  const designation = candidate.designation || "Not Available";
+
+  const experience = candidate.experience
+    ? candidate.experience
+    : candidate.relevantExp
+    ? `${candidate.relevantExp} Years`
+    : "—";
+
+  const location = candidate.location || "—";
+
+  const ctcCurrent = candidate.currCTC ? `${candidate.currCTC} LPA` : "—";
+  const ctcExpected = candidate.expCTC ? `${candidate.expCTC} LPA` : "—";
+
+  const company = candidate.recentCompany || "—";
+
+  const portalDate = candidate.portalDate
+    ? new Date(candidate.portalDate).toISOString().split("T")[0]
+    : "—";
+
+  const applyDate = candidate.applyDate
+    ? new Date(candidate.applyDate).toISOString().split("T")[0]
+    : "—";
+
+  const skills =
+    candidate.skillsAll && candidate.skillsAll.length > 0
+      ? candidate.skillsAll
+      : candidate.topSkills && candidate.topSkills.length > 0
+      ? candidate.topSkills
+      : [];
+
+  // Normalize Cloudinary URL for inline PDF viewing
+  let resumeUrl = candidate.pdfFile || candidate.resumeUrl || null;
+
+  if (resumeUrl && resumeUrl.includes("/upload/")) {
+    resumeUrl = resumeUrl.replace("/upload/", "/upload/fl_attachment:false/");
+  }
+
+  const education = candidate.education || [];
+
+  // Work experience fallback logic
+  const inferredWorkExp = [];
+
+  if (candidate.relevantExp || candidate.experience) {
+    inferredWorkExp.push({
+      role: designation,
+      company: candidate.recentCompany,
+      period: applyDate !== "—" ? `Since ${applyDate}` : "—",
+    });
+  }
+
+  const handleResumeDownload = async (candidateId) => {
+    try {
+      const res = await dispatch(downloadResumeThunk(candidateId)).unwrap();
+      window.open(res.resumeUrl, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      toast.error(
+        error || "Resume download failed. Maybe daily limit reached."
+      );
+    }
+  };
+
   return (
     <div className="w-full space-y-10">
       {/* PAGE HEADER */}
@@ -13,204 +124,138 @@ export default function CandidateProfilePage() {
         </p>
       </div>
 
-      {/* PROFILE HEADER CARD */}
-      <div className="border border-[#e5e7eb] rounded-xl bg-white shadow-sm">
-        <div className="p-6 pb-2 bg-[#f6f7f9] rounded-t-xl">
-          <h2 className="text-lg font-semibold text-gray-900">John Doe</h2>
-          <p className="text-gray-500 text-sm mt-1">
-            Senior Full Stack Developer
-          </p>
+      {/* PROFILE CARD */}
+      <div className="border border-gray-200 rounded-xl bg-white shadow-sm">
+        {/* TOP HEADER */}
+        <div className="p-6 bg-[#f6f7f9] rounded-t-xl flex justify-between">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">{fullName}</h2>
+            <p className="text-gray-500 text-sm mt-1">{designation}</p>
+          </div>
+
+          {candidate && (
+            <button
+              onClick={() => handleResumeDownload(candidate._id)}
+              className="flex items-center gap-2 bg-lime-500 text-white px-4 py-2 rounded-md hover:bg-lime-600"
+            >
+              <FaDownload /> Resume
+            </button>
+          )}
         </div>
 
-        <div className="p-6 pb-4">
-          {/* EXPERIENCE + CTC ROW */}
-          <div className="flex justify-between items-start text-sm">
+        {/* INFO GRID */}
+        <div className="p-6">
+          <div className="flex justify-between text-sm">
             <div className="space-y-2">
               <p className="flex items-center gap-2">
-                <span className="text-gray-600 flex items-center gap-1">
-                  <FaSuitcase /> Experience:
-                </span>
-                <span className="text-blue-700 cursor-pointer font-medium">
-                  8 years
-                </span>
+                <FaSuitcase className="text-gray-600" />
+                <span className="text-gray-700">Experience:</span>
+                <span className="text-blue-700 font-medium">{experience}</span>
               </p>
 
               <p className="flex items-center gap-2">
-                <span className="text-blue-700 cursor-pointer flex items-center gap-1">
-                  <GrLocation className="text-gray-900" /> Bangalore, Karnataka
-                </span>
+                <GrLocation className="text-gray-600" />
+                <span className="text-blue-700">{location}</span>
               </p>
             </div>
 
-            <div>
-              <span className="text-gray-600">Current CTC: </span>
-              <span className="text-blue-700 cursor-pointer font-medium">
-                ₹25 LPA
-              </span>
+            <div className="space-y-1 text-right">
+              <p>
+                <span className="text-gray-600">Current CTC:</span>{" "}
+                <span className="text-blue-700 font-medium">{ctcCurrent}</span>
+              </p>
+              <p>
+                <span className="text-gray-600">Expected CTC:</span>{" "}
+                <span className="text-blue-700 font-medium">{ctcExpected}</span>
+              </p>
             </div>
           </div>
 
           {/* SKILLS */}
           <p className="mt-6 mb-2 font-medium text-gray-700">Skills</p>
           <div className="flex flex-wrap gap-2">
-            {["React", "Node.js", "TypeScript", "AWS", "Docker", "MongoDB"].map(
-              (skill, index) => (
+            {skills.length > 0 ? (
+              skills.map((skill, index) => (
                 <span
                   key={index}
-                  className="px-3 py-1 text-xs font-medium bg-[#103c7f] text-white rounded-xl"
+                  className="px-3 py-1 text-xs bg-[#103c7f] text-white rounded-xl"
                 >
                   {skill}
                 </span>
-              )
+              ))
+            ) : (
+              <p className="text-gray-500">No skills listed</p>
             )}
           </div>
         </div>
       </div>
 
       {/* CONTACT INFORMATION */}
-      <div className="border border-[#e5e7eb] rounded-xl bg-white shadow-sm p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">
-          Contact Information
-        </h2>
+      <div className="border border-gray-200 rounded-xl bg-white shadow-sm p-6">
+        <h2 className="text-xl font-semibold mb-4">Contact Information</h2>
 
-        <div className="space-y-3 text-gray-700 text-sm">
+        <div className="space-y-3">
           <p className="flex items-center gap-3">
-            <FaEnvelope className="text-gray-600" /> john.doe@email.com
+            <FaEnvelope className="text-gray-600" />
+            {candidate.email || "Not Provided"}
           </p>
+
           <p className="flex items-center gap-3">
-            <FaPhone className="text-gray-600" /> +91 98765 43210
+            <FaPhone className="text-gray-600" />
+            {candidate.mobile || "Not Provided"}
           </p>
         </div>
       </div>
 
       {/* EDUCATION */}
-      <div className="border border-[#e5e7eb] rounded-xl bg-white shadow-sm p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-6">Education</h2>
+      <div className="border border-gray-200 rounded-xl bg-white shadow-sm p-6">
+        <h2 className="text-xl font-semibold mb-6">Education</h2>
 
-        <div className="space-y-6">
-          <div className="border-l-2 border-[#103c7f] ">
-            <div className="pl-3">
-              <p className="font-semibold text-gray-900">
-                B.Tech in Computer Science
-              </p>
-              <p className="text-gray-600">ABC University</p>
-              <p className="text-gray-500 text-sm">2015</p>
+        {education.length > 0 ? (
+          education.map((edu, i) => (
+            <div key={i} className="border-l-2 border-[#103c7f] pl-3 mb-4">
+              <p className="font-semibold">{edu.degree}</p>
+              <p className="text-gray-600">{edu.institute}</p>
+              <p className="text-gray-600">Passing Year: {edu.passingYear}</p>
+              <p className="text-gray-600">Score: {edu.score}</p>
             </div>
-          </div>
-
-          <div className="border-l-2 border-[#103c7f] ">
-            <div className="pl-3">
-              <p className="font-semibold text-gray-900">
-                M.Tech in Software Engineering
-              </p>
-              <p className="text-gray-600">XYZ Institute</p>
-              <p className="text-gray-500 text-sm">2017</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* JD MATCH CV ANALYSIS */}
-      <div className="border border-[#e5e7eb] rounded-xl bg-white shadow-sm p-6">
-        <h2 className="text-lg font-semibold text-gray-900">
-          JD Match CV Analysis
-        </h2>
-        <p className="text-gray-500 text-sm mb-6">
-          Upload or paste a Job Description to find matching candidate profiles
-        </p>
-
-        {/* Upload Box */}
-        <div className="border border-dashed border-gray-300 rounded-lg py-3 text-center bg-[#fafafa]">
-          <button className="flex items-center gap-2 text-blue-700 font-medium mx-auto">
-            <FaUpload /> Upload PDF or DOCX
-          </button>
-        </div>
-
-        <div className="flex items-center gap-0.5">
-          <div className="border-t border-gray-200 w-72.5"></div>
-          <p className="text-center  text-gray-400 text-xs mt-3 mb-3">
-            OR PASTE TEXT
-          </p>
-          <div className="border-t border-gray-200 w-72.5"></div>
-        </div>
-
-        <textarea
-          placeholder="Paste the complete job description here to analyze candidate match…"
-          className="w-full border border-gray-300 rounded-lg p-1 bg-orange-50 h-20 focus:outline-none"
-        />
-
-        <button className="mt-4 bg-lime-500 hover:bg-lime-600 text-white px-6 py-2 rounded-md text-sm">
-          Analyze Match
-        </button>
+          ))
+        ) : (
+          <p className="text-gray-500">No education data available</p>
+        )}
       </div>
 
       {/* WORK EXPERIENCE */}
-      <div className="border border-[#e5e7eb] rounded-xl bg-white shadow-sm p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-6">
-          Work Experience
-        </h2>
+      <div className="border border-gray-200 rounded-xl bg-white shadow-sm p-6">
+        <h2 className="text-xl font-semibold mb-6">Work Experience</h2>
 
-        <div className="space-y-6">
-          {/* Experience Item */}
-          {[
-            {
-              role: "Senior Developer",
-              company: "Tech Corp",
-              period: "2021 - Present",
-            },
-            {
-              role: "Full Stack Developer",
-              company: "Digital Solutions",
-              period: "2018 - 2021",
-            },
-            {
-              role: "Junior Developer",
-              company: "StartUp Inc",
-              period: "2017 - 2018",
-            },
-          ].map((exp, i) => (
-            <div key={i}>
-              <div className="border-l-2 border-[#103c7f] ">
-                <div className="pl-3">
-                  <p className="font-semibold text-gray-900">{exp.role}</p>
-                  <p className="text-gray-600">{exp.company}</p>
-                  <p className="text-gray-500 text-sm">{exp.period}</p>
-                </div>
-              </div>
+        {inferredWorkExp.length > 0 ? (
+          inferredWorkExp.map((exp, i) => (
+            <div key={i} className="border-l-2 pl-3 border-[#103c7f] mb-4">
+              <p className="font-semibold">{exp.role}</p>
+              <p className="text-gray-600">{exp.company}</p>
+              <p className="text-gray-500 text-sm">{exp.period}</p>
             </div>
-          ))}
-
-          {/* TIMELINE CARD */}
-          <div className="border border-gray-300 rounded-lg bg-white p-4 w-120 mt-6">
-            <p className="font-medium text-gray-900 mb-3">Timeline</p>
-
-            <div className=" flex items-center gap-7">
-              <p className="text-sm">
-                <span className="font-medium text-gray-400">Apply Date:</span>{" "}
-                <span className="text-blue-700">2025-01-10</span>
-              </p>
-
-              <p className="text-sm">
-                <span className="font-medium text-gray-400">Portal Date:</span>{" "}
-                <span className="text-blue-700">2025-01-15</span>
-              </p>
-            </div>
-          </div>
-        </div>
+          ))
+        ) : (
+          <p className="text-gray-500">No work experience provided</p>
+        )}
       </div>
 
       {/* RECRUITER REMARKS */}
-      <div className="border border-[#e5e7eb] rounded-xl bg-white shadow-sm p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">
-          Recruiter Remarks
-        </h2>
+      <div className="border border-gray-200 rounded-xl bg-white shadow-sm p-6">
+        <h2 className="text-xl font-semibold mb-4">Recruiter Remarks</h2>
 
         <textarea
-          placeholder="Add your remarks about this candidate…"
-          className="w-full border border-gray-300 rounded-lg p-1 bg-orange-50 h-20 focus:outline-none"
+          value={remark}
+          onChange={(e) => setRemark(e.target.value)}
+          className="w-full border rounded-lg bg-orange-50 h-20 p-2"
         />
 
-        <button className="mt-4 bg-lime-500 hover:bg-lime-600 text-white px-6 py-2 rounded-md text-sm">
+        <button
+          onClick={saveRemarks}
+          className="mt-4 bg-lime-500 hover:bg-lime-600 text-white px-6 py-2 rounded-md"
+        >
           Save Remarks
         </button>
       </div>

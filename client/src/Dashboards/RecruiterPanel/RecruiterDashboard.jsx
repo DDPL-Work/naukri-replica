@@ -1,138 +1,195 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { LuDownload, LuSearch, LuActivity, LuArrowRight } from "react-icons/lu";
 import { Link, useNavigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+import { fetchRecruiterLogs } from "../../features/slices/recruiterLogSlice";
 
-const RecruiterDashboard = () => {
+export default function RecruiterDashboard() {
+  const dispatch = useDispatch();
   const navigate = useNavigate();
 
-  const progress = 3;
-  const total = 10;
-  const percentage = (progress / total) * 100;
+  // Logs state
+  const { logs, loading, error } = useSelector((state) => state.recruiterLogs);
 
-  const recentSearches = [
-    {
-      role: "React Developer",
-      count: 45,
-      time: "2 hours ago",
-    },
-    {
-      role: "Product Manager",
-      count: 32,
-      time: "5 hours ago",
-    },
-    {
-      role: "UI/UX Designer",
-      count: 28,
-      time: "1 day ago",
-    },
-  ];
+  // Auth user
+  const authUser = useSelector((state) => state.auth.user);
+
+  useEffect(() => {
+    dispatch(fetchRecruiterLogs());
+  }, [dispatch]);
+
+  const today = new Date().toISOString().split("T")[0];
+
+  const todayDownloads = logs.filter(
+    (log) => log.action === "resume_download" && log.createdAt.startsWith(today)
+  ).length;
+
+  // -------------------------------------------------------------------
+  // USE REAL DAILY LIMIT FROM BACKEND USER MODEL
+  // -------------------------------------------------------------------
+  const DAILY_LIMIT = authUser?.dailyDownloadLimit || 10;
+
+  const progressPercentage = Math.min(
+    (todayDownloads / DAILY_LIMIT) * 100,
+    100
+  );
+
+  // Recent searches
+  const recentSearches = logs
+    .filter((log) => log.action === "search_candidates")
+    .slice(0, 5);
+
   return (
-    <div className="w-full space-y-8">
-      {/* Header */}
+    <div className="w-full space-y-10 bg-white">
+      {/* TITLE */}
       <div>
-        <h1 className="text-3xl font-semibold text-gray-900">
+        <h1 className="text-black text-4xl font-bold font-serif leading-[60px]">
           Welcome back, Recruiter!
         </h1>
-        <p className="text-gray-500 text-sm mt-1">
+
+        <p className="text-zinc-500/95 text-xl font-normal font-[Calibri] leading-8 max-w-2xl">
           Your dashboard is ready with the latest insights and tools to find top
           talent.
         </p>
       </div>
 
-      {/* Progress Card */}
-      <div className="border border-gray-200 rounded-lg p-4 bg-white shadow-sm">
-        <div className="flex items-center gap-2 text-gray-700 font-medium">
-          <LuDownload size={18} /> Downloads Resume Today
+      {/* RESUME DOWNLOAD CARD */}
+      <div className="w-[1040px] bg-white rounded-lg shadow-sm  outline-1 outline-zinc-200 p-6">
+        <div className="flex items-center gap-2">
+          <LuDownload size={20} className="text-black" />
+          <span className="text-black text-lg font-bold font-[Calibri] leading-7">
+            Downloads Resume Today
+          </span>
         </div>
 
-        <div className="mt-4">
-          <div className="text-3xl font-semibold text-[#103c7f] flex items-end gap-1">
-            {progress}
-            <span className="text-gray-400 text-lg">/ {total}</span>
+        <div className="mt-4 flex flex-col gap-3">
+          <div className="flex items-end gap-2">
+            <span className="text-blue-900 text-4xl font-bold font-[Lato] leading-10">
+              {todayDownloads}
+            </span>
+            <span className="text-zinc-500 text-2xl font-normal font-[Lato] leading-8">
+              / {DAILY_LIMIT}
+            </span>
           </div>
 
-          <div className="w-full h-2 bg-gray-200 rounded-full mt-3">
+          <div className="w-full h-2 bg-zinc-200 rounded-full overflow-hidden">
             <div
-              className="h-2 bg-[#103c7f] rounded-full transition-all"
-              style={{ width: `${percentage}%` }}
+              style={{ width: `${progressPercentage}%` }}
+              className="h-2 bg-blue-900 rounded-full transition-all"
             ></div>
           </div>
         </div>
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 ">
-        {/* Quick Search */}
-        <div className="border border-gray-200 rounded-lg p-4 bg-white shadow-sm ">
-          <div className="flex items-center gap-2 text-gray-800 font-medium">
-            <LuSearch size={18} /> Quick Candidate Search
+      {/* QUICK ACTIONS */}
+      <div className="flex gap-6">
+        {/* QUICK SEARCH */}
+        <div className="w-60 bg-white rounded-xl shadow-sm  outline-1 outline-zinc-200/50 p-6 flex flex-col gap-3">
+          <div className="flex items-center gap-2">
+            <LuSearch size={18} className="text-black" />
+            <span className="text-black text-base font-normal font-[Calibri] leading-5">
+              Quick Candidate Search
+            </span>
           </div>
-          <p className="text-gray-500 text-sm mt-1">
+
+          <p className="text-zinc-500 text-xs font-normal font-[Calibri] leading-4">
             Find candidates by skill, location, and experience.
           </p>
+
           <Link
             to="/recruiter/candidate-search"
-            className="mt-2 text-center border-2 font-bold transition-colors duration-500 border-[#103c7f] px-4 py-2 rounded-md text-sm  flex items-center justify-center hover:bg-[#a1db40] hover:text-[#103c7f] hover:border-0 gap-2"
+            className="w-full text-center text-black text-xs font-normal font-[Calibri] leading-5 rounded-md  outline-1 outline-blue-900 h-7 flex items-center justify-center gap-1"
           >
-            Start New Search <LuArrowRight size={14} />
+            Start New Search <LuArrowRight size={12} />
           </Link>
         </div>
 
-        {/* Activity Logs */}
-        <div className="border border-gray-200 rounded-lg p-4 bg-white shadow-sm">
-          <div className="flex items-center gap-2 text-gray-800 font-medium">
-            <LuActivity size={18} /> Activity Logs
+        {/* ACTIVITY LOGS */}
+        <div className="w-60 bg-white rounded-xl shadow-sm  outline-1 outline-zinc-200/50 p-6 flex flex-col gap-3">
+          <div className="flex items-center gap-2">
+            <LuActivity size={18} className="text-black" />
+            <span className="text-black text-base font-normal font-[Calibri] leading-5">
+              Activity Logs
+            </span>
           </div>
-          <p className="text-gray-500 text-sm mt-1">
-            Track your search history and profile interactions.
+
+          <p className="text-zinc-500 text-xs font-normal font-[Calibri] leading-4">
+            Track your search history and profile interactions
           </p>
-           <Link
+
+          <Link
             to="/recruiter/activity-logs"
-            className="mt-2 text-center  border-2 border-[#103c7f] transition-colors duration-500 px-4 py-2 rounded-md text-sm hover:bg-[#a1db40] hover:text-[#103c7f] hover:border-0 font-bold flex items-center justify-center gap-2"
+            className="w-full text-center text-black text-xs font-normal font-[Calibri] leading-5 rounded-md  outline-1 outline-blue-900 h-7 flex items-center justify-center gap-1"
           >
-            Track Activity <LuArrowRight size={14} />
+            Track Activity <LuArrowRight size={12} />
           </Link>
         </div>
       </div>
 
-      {/* Recent Searches */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">
+      {/* RECENT SEARCHES */}
+      <div className="w-[1035px] bg-white rounded-xl shadow-sm  outline-1 outline-zinc-200/50 p-8 flex flex-col gap-8">
+        <div className="flex items-center justify-between">
+          <h2 className="text-black text-2xl font-bold font-[Calibri] leading-8">
             Recent Searches
           </h2>
-          <button className="text-sm text-blue-600 flex items-center gap-1 hover:underline">
+
+          <Link
+            to="/recruiter/activity-logs"
+            className="text-color-azure-25 text-sm font-normal font-[Calibri] leading-5 flex items-center gap-1"
+          >
             View All <LuArrowRight size={14} />
-          </button>
+          </Link>
         </div>
 
-        <div className="space-y-3">
-          {recentSearches.map((item, index) => (
-            <div
-              key={index}
-              className="flex items-center justify-between p-4 border border-gray-200 rounded-lg bg-blue-50 hover:bg-blue-100 transition"
-            >
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 bg-indigo-100 text-indigo-600 flex items-center justify-center rounded-md">
-                  <LuSearch size={20} />
-                </div>
-                <div>
-                  <div className="text-gray-900 font-medium">{item.role}</div>
-                  <div className="text-gray-500 text-sm">
-                    {item.count} candidates found · {item.time}
+        {loading && <p>Loading logs...</p>}
+        {error && <p className="text-red-500">{error}</p>}
+
+        <div className="flex flex-col gap-4">
+          {recentSearches.length === 0 && !loading ? (
+            <p className="text-zinc-500">No recent searches found</p>
+          ) : (
+            recentSearches.map((item, index) => (
+              <div
+                key={index}
+                className="w-full p-5 bg-linear-to-r from-zinc-100 to-zinc-200 rounded-2xl  outline-1 outline-zinc-200/50 flex justify-between items-center"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 bg-linear-to-br from-blue-900/10 to-blue-900/5 rounded-xl  outline-1 outline-blue-900/10 flex justify-center items-center">
+                    <LuSearch size={24} className="text-blue-900" />
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <div className="text-black text-lg font-normal font-[Calibri] leading-7">
+                      {item.details.query?.q || "General Search"}
+                    </div>
+
+                    <div className="flex gap-2 text-sm font-normal font-[Calibri]">
+                      <span className="text-blue-900">
+                        {item.details.count || ""}
+                      </span>
+                      <span className="text-zinc-500">candidates found</span>
+                      <span className="text-zinc-500">
+                        {new Date(item.createdAt).toLocaleString()}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <button className="border px-4 py-2 rounded-md text-sm hover:bg-gray-50">
-                View Results
-              </button>
-            </div>
-          ))}
+                <button
+                  onClick={() =>
+                    navigate("/recruiter/candidate-search", {
+                      state: { prefill: item.details?.query },
+                    })
+                  }
+                  className="px-3 py-2 bg-stone-50 rounded-[10px]  outline-1 outline-blue-900/20 text-blue-900 text-sm font-normal font-[Calibri] leading-5"
+                >
+                  View Results
+                </button>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>
   );
-};
-
-export default RecruiterDashboard;
+}

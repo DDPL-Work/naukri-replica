@@ -1,243 +1,258 @@
 import React, { useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import { FaSearch, FaFilter } from "react-icons/fa";
 import ProfileCard from "../../components/RecruiterComponents/CandidateProfileCard";
+import { searchCandidates } from "../../features/slices/recruiterSlice";
 
 export default function CandidateSearch() {
+  const dispatch = useDispatch();
+  const { searchLoading, searchError, searchResults } = useSelector(
+    (state) => state.recruiter
+  );
+
+  const staticLocations = [
+    "Bangalore",
+    "Mumbai",
+    "Delhi",
+    "Hyderabad",
+    "Chennai",
+    "Pune",
+    "Noida",
+    "Gurgaon",
+    "Kolkata",
+    "Jaipur",
+  ];
+
+  const staticSkills = [
+    "React",
+    "Node.js",
+    "JavaScript",
+    "Python",
+    "MongoDB",
+    "Express.js",
+    "Java",
+    "Angular",
+    "DevOps",
+    "UI/UX",
+  ];
+
+  const staticDesignations = [
+    "Software Engineer",
+    "Full Stack Developer",
+    "Backend Developer",
+    "Frontend Developer",
+    "Team Lead",
+    "Senior Developer",
+    "Project Manager",
+    "Data Analyst",
+  ];
+
+  const [showFilters, setShowFilters] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+
   const [filters, setFilters] = useState({
-    jobType: "",
     searchText: "",
     location: "",
-    qualification: "",
     minExp: "",
     maxExp: "",
     designation: "",
-    expectedCtc: "",
     skills: "",
   });
 
-  const [showResults, setShowResults] = useState(false);
-  const [filterOpen, setFilterOpen] = useState(false);
-
-  const candidates = [
-    {
-      name: "John Doe",
-      role: "Senior Full Stack Developer",
-      experience: "8 years",
-      company: "Tech Corp",
-      postedOn: "2025-01-15",
-      ctc: "₹25 LPA",
-      location: "Bangalore",
-      applyDate: "2025-01-10",
-      skills: ["React", "Node.js", "TypeScript", "AWS"],
-    },
-    {
-      name: "James Smith",
-      role: "UI/UX Designer",
-      experience: "5 years",
-      company: "Creative Studio",
-      postedOn: "2025-01-12",
-      ctc: "₹18 LPA",
-      location: "Mumbai",
-      applyDate: "2025-01-09",
-      skills: ["Figma", "Adobe XD", "Wireframing"],
-    },
-  ];
-
-  const handleSearch = () => {
-    setShowResults(true);
-  };
+  const formattedResults = searchResults?.map((item) => ({
+    ...item.source,
+    _id: item.id,
+  }));
 
   const handleChange = (key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
   };
 
+  const handleSearch = () => {
+    const params = {
+      q: filters.searchText || undefined,
+      location: filters.location || undefined,
+      minExp: filters.minExp || undefined,
+      maxExp: filters.maxExp || undefined,
+      designation: filters.designation || undefined,
+      skills: filters.skills
+        ? filters.skills.split(",").map((s) => s.trim())
+        : undefined,
+      page: 1,
+      size: 20,
+    };
+
+    dispatch(searchCandidates(params));
+    setShowResults(true);
+
+    setTimeout(() => {
+      window.scrollTo({ top: 400, behavior: "smooth" });
+    }, 200);
+  };
+
   return (
-    <div className="w-full space-y-8 ">
+    <div className="w-full px-6 space-y-10">
+      {/* PAGE HEADER */}
       <div>
-        <h1 className="text-3xl font-semibold text-gray-900">
+        <h1 className="text-4xl font-serif font-bold leading-[60px] text-black">
           Candidate Search
         </h1>
-        <p className="text-gray-500 text-sm mt-1">
+        <p className="text-xl font-['Calibri'] text-zinc-500 leading-6">
           Find the perfect candidates for your requirements
         </p>
       </div>
 
-      <div className="mr-15 space-y-6">
-        {/* SEARCH BAR */}
-      <div className="flex items-center justify-between mr-4">
-        {/* LEFT SEARCH BAR */}
-        <div className="flex items-center w-full bg-[#f8f9f7] border border-gray-300 rounded-xl px-4 py-3 gap-4">
-          {/* Job Type Dropdown */}
-          <select
-            className="bg-transparent text-gray-700 text-sm focus:outline-none"
-            onChange={(e) => handleChange("jobType", e.target.value)}
-          >
-            <option value="">Select job type</option>
-            <option value="Full Time">Full Time</option>
-            <option value="Part Time">Part Time</option>
-          </select>
-
-          {/* Divider */}
-          <span className="text-gray-400">|</span>
-
-          {/* Search Text */}
+      {/* SEARCH BAR */}
+      <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+        <div className="flex-1 bg-stone-50  outline-1 outline-zinc-200 rounded-xl p-5 flex items-center gap-4">
+          {/* Search text */}
           <input
-            type="text"
+            className="flex-1 text-sm font-['Calibri'] text-zinc-500 bg-transparent outline-none"
             placeholder="Search by name / designation / skills / company"
-            className="bg-transparent flex-1 text-sm text-gray-700 focus:outline-none"
             onChange={(e) => handleChange("searchText", e.target.value)}
           />
 
-          {/* Divider */}
-          <span className="text-gray-400">|</span>
+          <div className="w-px h-4 bg-zinc-400"></div>
 
           {/* Location */}
           <input
-            type="text"
+            className="text-sm font-['Calibri'] text-zinc-500 bg-transparent outline-none"
             placeholder="Enter location"
-            className="bg-transparent text-sm text-gray-700 focus:outline-none"
             onChange={(e) => handleChange("location", e.target.value)}
           />
         </div>
 
         {/* SEARCH BUTTON */}
         <button
-          className="flex items-center gap-2 bg-lime-500 hover:bg-lime-600 text-black px-6 py-2 rounded-md ml-3"
+          className="bg-lime-400 px-5 py-2 rounded-md flex items-center gap-2 text-black text-base font-['Calibri']"
           onClick={handleSearch}
         >
           <FaSearch /> Search
         </button>
 
-        {/* FILTER BUTTON */}
+        {/* FILTER TOGGLE */}
         <button
-          className={`ml-3 px-4 py-3 rounded-md  transition-colors 
-      ${
-        filterOpen
-          ? "bg-lime-500 text-black"
-          : "text-gray-700 hover:bg-gray-100"
-      }`}
-          onClick={() => setFilterOpen(!filterOpen)}
+          className={`w-10 h-10 flex justify-center items-center rounded-md ${
+            showFilters
+              ? "bg-lime-400"
+              : "bg-stone-50  outline-1 outline-zinc-200"
+          }`}
+          onClick={() => setShowFilters(!showFilters)}
         >
           <FaFilter />
         </button>
       </div>
 
-      {/* FILTER SECTION */}
-      {filterOpen && (
-        <div className="border border-gray-200 rounded-2xl bg-white py-8 px-10 shadow-sm animate-fadeIn">
-          <h2 className="text-xl font-semibold mb-8 text-gray-900">Filters</h2>
+      {/* FILTER PANEL */}
+      {showFilters && (
+        <div className="bg-white rounded-lg  outline-1 outline-zinc-200 p-6 space-y-6">
+          <h2 className="text-lg font-['Lato'] font-bold">Filters</h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* Location */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* LOCATION */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="text-sm font-['Lato'] text-black">
                 Location
               </label>
+
               <select
-                className="w-full border border-gray-300 bg-[#fafafa] rounded-md px-3 py-2 text-gray-700 focus:outline-lime-500"
+                className="w-full bg-stone-50  outline-1 outline-zinc-200 rounded-md px-3 py-2 mt-1 text-sm text-zinc-500"
                 onChange={(e) => handleChange("location", e.target.value)}
               >
                 <option value="">Select location</option>
-                <option>Bangalore</option>
-                <option>Mumbai</option>
-                <option>Delhi</option>
+                {staticLocations.map((loc) => (
+                  <option key={loc}>{loc}</option>
+                ))}
               </select>
+
+              <input
+                placeholder="Or enter custom"
+                className="w-full bg-stone-50  outline-1 outline-zinc-200 rounded-md px-3 py-2 mt-2 text-sm text-zinc-500"
+                onChange={(e) => handleChange("location", e.target.value)}
+              />
             </div>
 
-            {/* Min Experience */}
+            {/* MIN EXP */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="text-sm font-['Lato'] text-black">
                 Min Experience
               </label>
               <input
-                type="number"
                 placeholder="e.g., 3"
-                className="w-full border border-gray-300 bg-[#fafafa] rounded-md px-3 py-2 text-gray-700 focus:outline-lime-500"
+                className="w-full bg-stone-50  outline-1 outline-zinc-200 rounded-md px-3 py-2 mt-1 text-sm text-zinc-500"
                 onChange={(e) => handleChange("minExp", e.target.value)}
               />
             </div>
 
-            {/* Max Experience */}
+            {/* MAX EXP */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="text-sm font-['Lato'] text-black">
                 Max Experience
               </label>
               <input
-                type="number"
                 placeholder="e.g., 10"
-                className="w-full border border-gray-300 bg-[#fafafa] rounded-md px-3 py-2 text-gray-700 focus:outline-lime-500"
+                className="w-full bg-stone-50  outline-1 outline-zinc-200 rounded-md px-3 py-2 mt-1 text-sm text-zinc-500"
                 onChange={(e) => handleChange("maxExp", e.target.value)}
               />
             </div>
 
-            {/* Qualification */}
+            {/* DESIGNATION */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Qualification
-              </label>
-              <select
-                className="w-full border border-gray-300 bg-[#fafafa] rounded-md px-3 py-2 text-gray-700 focus:outline-lime-500"
-                onChange={(e) => handleChange("qualification", e.target.value)}
-              >
-                <option value="">Select qualification</option>
-                <option>B.Tech</option>
-                <option>MCA</option>
-              </select>
-            </div>
-
-            {/* Designation */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="text-sm font-['Lato'] text-black">
                 Designation
               </label>
+
+              <select
+                className="w-full bg-stone-50  outline-1 outline-zinc-200 rounded-md px-3 py-2 mt-1 text-sm text-zinc-500"
+                onChange={(e) => handleChange("designation", e.target.value)}
+              >
+                <option value="">Select designation</option>
+                {staticDesignations.map((d) => (
+                  <option key={d}>{d}</option>
+                ))}
+              </select>
+
               <input
-                type="text"
-                placeholder="e.g., Senior Developer"
-                className="w-full border border-gray-300 bg-[#fafafa] rounded-md px-3 py-2 text-gray-700 focus:outline-lime-500"
+                placeholder="Or enter custom"
+                className="w-full bg-stone-50  outline-1 outline-zinc-200 rounded-md px-3 py-2 mt-2 text-sm text-zinc-500"
                 onChange={(e) => handleChange("designation", e.target.value)}
               />
             </div>
 
-            {/* Skills */}
+            {/* SKILLS */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Skills
-              </label>
+              <label className="text-sm font-['Lato'] text-black">Skills</label>
+
+              <select
+                className="w-full bg-stone-50  outline-1 outline-zinc-200 rounded-md px-3 py-2 mt-1 text-sm text-zinc-500"
+                onChange={(e) => handleChange("skills", e.target.value)}
+              >
+                <option value="">Select skill</option>
+                {staticSkills.map((s) => (
+                  <option key={s}>{s}</option>
+                ))}
+              </select>
+
               <input
-                type="text"
-                placeholder="e.g., React, Node.js"
-                className="w-full border border-gray-300 bg-[#fafafa] rounded-md px-3 py-2 text-gray-700 focus:outline-lime-500"
+                placeholder="Comma-separated skills"
+                className="w-full bg-stone-50  outline-1 outline-zinc-200 rounded-md px-3 py-2 mt-2 text-sm text-zinc-500"
                 onChange={(e) => handleChange("skills", e.target.value)}
               />
             </div>
-
-            {/* Expected CTC */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Expected CTC (LPA)
-              </label>
-              <select
-                className="w-full border border-gray-300 bg-[#fafafa] rounded-md px-3 py-2 text-gray-700 focus:outline-lime-500"
-                onChange={(e) => handleChange("expectedCtc", e.target.value)}
-              >
-                <option value="">Any CTC</option>
-                <option>10 LPA</option>
-                <option>20 LPA</option>
-              </select>
-            </div>
           </div>
 
-          {/* Buttons */}
-          <div className="flex items-center gap-4 mt-10">
+          {/* FILTER BUTTONS */}
+          <div className="flex items-center gap-4">
             <button
               onClick={handleSearch}
-              className="bg-lime-500 hover:bg-lime-600 text-white rounded-md px-6 py-2 font-medium"
+              className="bg-lime-400 text-black text-sm font-['Calibri'] px-4 py-2 rounded-md"
             >
               Apply Filters
             </button>
+
             <button
+              className="bg-stone-50  outline-1 outline-zinc-200 text-zinc-500 text-sm px-4 py-2 rounded-md"
               onClick={() => window.location.reload()}
-              className="border border-gray-300 rounded-md px-6 py-2 text-gray-700 hover:bg-gray-50"
             >
               Reset
             </button>
@@ -247,13 +262,19 @@ export default function CandidateSearch() {
 
       {/* RESULTS SECTION */}
       {showResults && (
-        <div className="space-y-6 ">
-          {candidates.map((item, index) => (
-            <ProfileCard key={index} data={item} />
+        <div className="space-y-6 mt-4">
+          {searchLoading && <p>Searching candidates...</p>}
+          {searchError && <p className="text-red-500">{searchError}</p>}
+
+          {formattedResults?.map((item) => (
+            <ProfileCard key={item._id} data={item} />
           ))}
+
+          {!searchLoading && searchResults?.length === 0 && (
+            <p className="text-zinc-500">No candidates found.</p>
+          )}
         </div>
       )}
-      </div>
     </div>
   );
 }

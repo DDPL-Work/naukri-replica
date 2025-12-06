@@ -10,6 +10,10 @@ import ProtectedRoute from "./ProtectedRoute";
 import RecruiterManagement from "../Dashboards/AdminPanel/ManageRecruiter";
 import AddRecruiterForm from "../components/AdminComponents/AddRecruiterForm";
 import EditRecruiter from "../components/AdminComponents/EditRecruiter";
+import Analytics from "../Dashboards/AdminPanel/Analytics";
+import BulkUpload from "../Dashboards/AdminPanel/BulkUpload";
+import AdminActivityLogsPage from "../Dashboards/AdminPanel/ActivityLogs";
+import AddCandidateManually from "../Dashboards/AdminPanel/AddCandidateManually";
 
 export const appRouter = createBrowserRouter([
   {
@@ -34,7 +38,7 @@ export const appRouter = createBrowserRouter([
         element: <CandidateSearch />,
       },
       {
-        path: "/recruiter/candidate-profile",
+        path: "/recruiter/candidate-profile/:id",
         element: <CandidateProfilePage />,
       },
       {
@@ -58,6 +62,22 @@ export const appRouter = createBrowserRouter([
       {
         path: "/admin/recruiter-management/edit/:id",
         element: <EditRecruiter />,
+      },
+      {
+        path: "/admin/analytics",
+        element: <Analytics />,
+      },
+      {
+        path: "/admin/bulk-upload",
+        element: <BulkUpload />,
+      },
+      {
+        path: "/admin/activity-logs",
+        element: <AdminActivityLogsPage />,
+      },
+      {
+        path: "/admin/add-candidate",
+        element: <AddCandidateManually />,
       },
     ],
   },

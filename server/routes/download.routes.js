@@ -2,9 +2,10 @@
 import express from "express";
 import { authMiddleware } from "../middlewares/auth.middleware.js";
 import { downloadResume } from "../controllers/download.controller.js";
+import { logAction } from "../middlewares/logRecruiterMiddleware.js";
 
 const router = express.Router();
 
-router.post("/:id", authMiddleware(["RECRUITER","ADMIN"]), downloadResume);
+router.post("/:id", authMiddleware(["RECRUITER","ADMIN"]), logAction("resume_download"),  downloadResume);
 
 export default router;
