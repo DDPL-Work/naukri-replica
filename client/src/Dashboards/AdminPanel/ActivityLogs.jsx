@@ -10,6 +10,7 @@ import {
 import { useDispatch, useSelector } from "react-redux";
 import API from "../../API/axiosInstance";
 import { fetchRecruiterLogs } from "../../features/slices/recruiterLogSlice";
+import { listRecruiters } from "../../features/slices/adminSlice";
 
 /* ------------------------------------------------
    CLEAN TIMESTAMP
@@ -41,7 +42,7 @@ function exportCSV(rows) {
     ...rows.map((r) =>
       [
         `"${formatDateTime(r.createdAt)}"`,
-        `"${r.recruiterId?.email || ""}"`,
+        `"${r.recruiterId?.name} (${r.recruiterId?.email})"`,
         `"${r.action}"`,
         `"${JSON.stringify(r.details).replace(/"/g, '""')}"`,
       ].join(",")
@@ -58,7 +59,7 @@ function exportCSV(rows) {
 }
 
 /* ------------------------------------------------
-   FORMAT ACTIVITY TAG
+   PRETTY LABEL
 -------------------------------------------------- */
 const prettyActivity = (action) => {
   if (!action) return "Unknown";
@@ -76,14 +77,15 @@ const activityIcon = (action) => {
   if (a.includes("search")) return <FiSearch />;
   if (a.includes("view")) return <FiEye />;
   if (a.includes("download")) return <FiDownload />;
-  if (a.includes("update") || a.includes("remark")) return <FiEdit3 />;
+  if (a.includes("update")) return <FiEdit3 />;
   if (a.includes("login")) return <FiLogIn />;
+  if (a.includes("logout")) return <FiLogIn />;
 
   return <FiEye />;
 };
 
 /* ------------------------------------------------
-   ACTIVITY COLOR TAG
+   BADGE COLORS
 -------------------------------------------------- */
 const activityColorClass = (action) => {
   if (!action) return "bg-gray-200 text-gray-700";
@@ -95,6 +97,7 @@ const activityColorClass = (action) => {
   if (a.includes("download")) return "bg-green-100 text-green-700";
   if (a.includes("update")) return "bg-orange-100 text-orange-700";
   if (a.includes("login")) return "bg-red-100 text-red-700";
+  if (a.includes("logout")) return "bg-gray-300 text-gray-900";
 
   return "bg-gray-200 text-gray-700";
 };
@@ -104,20 +107,25 @@ const activityColorClass = (action) => {
 -------------------------------------------------- */
 export default function AdminActivityLogsPage() {
   const dispatch = useDispatch();
+
   const { logs, loading, error } = useSelector((state) => state.recruiterLogs);
+  const { recruiters } = useSelector((state) => state.admin);
 
   useEffect(() => {
     dispatch(fetchRecruiterLogs());
+    dispatch(listRecruiters());
   }, [dispatch]);
 
-  /* Local Cache for candidate names */
+  /* ------------------------------------------
+     CANDIDATE NAME CACHE
+  ------------------------------------------ */
   const [candidateCache, setCandidateCache] = useState({});
 
   const fetchCandidateName = async (id) => {
     if (!id || candidateCache[id]) return;
 
     try {
-      const res = await API.get(`/candidates/${id}`);
+      const res = await API.get(`/candidates/${id}?noLog=true`);
 
       setCandidateCache((prev) => ({
         ...prev,
@@ -126,7 +134,7 @@ export default function AdminActivityLogsPage() {
           jobTitle: res.data?.jobTitle || "",
         },
       }));
-    } catch (err) {
+    } catch {
       setCandidateCache((prev) => ({
         ...prev,
         [id]: { name: "Unknown", jobTitle: "" },
@@ -135,85 +143,124 @@ export default function AdminActivityLogsPage() {
   };
 
   /* ------------------------------------------------
-     FORMAT DETAILS CLEANLY (Same as Dashboard)
+     FORMAT DETAILS WITH BEAUTIFICATION
   -------------------------------------------------- */
   const formatDetails = (details, action) => {
-    if (!details) return "-";
+    if (!details || typeof details !== "object") return "-";
 
-    // CASE 1: Candidate actions (view / download)
+    /* Candidate access */
     if (details.params?.id) {
       const id = details.params.id;
 
       if (!candidateCache[id]) {
         fetchCandidateName(id);
-        return "Loading candidate...";
+        return <div className="text-xs text-zinc-500 italic">Loading…</div>;
       }
 
       const { name, jobTitle } = candidateCache[id];
-      const cleanJob = jobTitle ? ` (${jobTitle})` : "";
 
-      let label = "Candidate";
-      if (action === "resume_download") label = "Resume Downloaded";
-      if (action === "view_candidate") label = "Viewed Candidate";
-
-      return `${label}: ${name}${cleanJob}`;
+      return (
+        <div className="text-xs text-zinc-800 space-y-1">
+          <span className="font-semibold">
+            {action === "resume_download"
+              ? "Downloaded Resume:"
+              : "Viewed Candidate:"}
+          </span>
+          <span className="text-blue-700 font-semibold"> {name}</span>
+          {jobTitle && <span className="text-zinc-500"> ({jobTitle})</span>}
+        </div>
+      );
     }
 
-    // CASE 2: Search logs
-    if (details.query?.q) {
-      return `Search: ${details.query.q}`;
+    /* Search logs beautified */
+    if (details.query) {
+      const q = details.query;
+      return (
+        <div className="text-xs text-zinc-800 space-y-1">
+          {q.q && (
+            <div>
+              <span className="font-semibold">Search Text:</span> {q.q}
+            </div>
+          )}
+          {q.location && (
+            <div>
+              <span className="font-semibold">Location:</span> {q.location}
+            </div>
+          )}
+          {Array.isArray(q.skills) && q.skills.length > 0 && (
+            <div>
+              <span className="font-semibold">Skills:</span>{" "}
+              {q.skills.join(", ")}
+            </div>
+          )}
+        </div>
+      );
     }
 
-    // Fallback
-    return JSON.stringify(details);
+    if (action === "login")
+      return (
+        <div className="text-xs">
+          <span className="font-semibold">Status:</span> Logged In
+        </div>
+      );
+
+    if (action === "logout")
+      return (
+        <div className="text-xs">
+          <span className="font-semibold">Status:</span> Logged Out
+        </div>
+      );
+
+    /* Pretty fallback JSON */
+    return (
+      <pre className="text-xs bg-gray-50 p-2 rounded whitespace-pre-wrap border">
+        {JSON.stringify(details, null, 2)}
+      </pre>
+    );
   };
 
   /* ------------------------------------------------
-     FILTER STATES
+     FILTERS (USING RECRUITER OBJECTS)
   -------------------------------------------------- */
-  const [recruiterFilter, setRecruiterFilter] = useState("All Recruiters");
+
+  const recruiterOptions = useMemo(() => {
+    if (!recruiters) return [];
+    return [
+      { label: "All Recruiters", value: "all" },
+      ...recruiters.map((r) => ({
+        label: `${r.name} (${r.email})`,
+        value: r._id,
+      })),
+    ];
+  }, [recruiters]);
+
+  const [recruiterFilter, setRecruiterFilter] = useState("all");
   const [activityFilter, setActivityFilter] = useState("All Activity");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
 
-  const recruiters = useMemo(() => {
-    const setR = new Set(
-      logs
-        .filter((l) => l.recruiterId && l.recruiterId.role !== "ADMIN")
-        .map((l) => l.recruiterId.email)
-    );
-    return ["All Recruiters", ...Array.from(setR)];
-  }, [logs]);
-
-  const activities = useMemo(() => {
-    const setA = new Set(logs.map((l) => l.action));
-    return ["All Activity", ...Array.from(setA)];
-  }, [logs]);
-
   /* ------------------------------------------------
-     FILTERING
+     FILTERING LOGS
   -------------------------------------------------- */
   const filteredRows = logs.filter((row) => {
     if (!row.recruiterId || row.recruiterId.role === "ADMIN") return false;
 
-    if (
-      recruiterFilter !== "All Recruiters" &&
-      row.recruiterId.email !== recruiterFilter
-    )
+    // Match recruiter by ID
+    if (recruiterFilter !== "all" && row.recruiterId._id !== recruiterFilter)
       return false;
 
     if (activityFilter !== "All Activity" && row.action !== activityFilter)
       return false;
 
-    const date = row.createdAt?.slice(0, 10);
-    if (fromDate && date < fromDate) return false;
-    if (toDate && date > toDate) return false;
+    const d = row.createdAt?.slice(0, 10);
+    if (fromDate && d < fromDate) return false;
+    if (toDate && d > toDate) return false;
 
     return true;
   });
 
   /* ------------------------------------------------
-     PAGINATION
+     Pagination
   -------------------------------------------------- */
   const ITEMS_PER_PAGE = 10;
   const totalPages = Math.ceil(filteredRows.length / ITEMS_PER_PAGE);
@@ -225,17 +272,17 @@ export default function AdminActivityLogsPage() {
   );
 
   const resetFilters = () => {
-    setRecruiterFilter("All Recruiters");
+    setRecruiterFilter("all");
     setActivityFilter("All Activity");
     setFromDate("");
     setToDate("");
   };
 
   /* ------------------------------------------------
-     LOADING / ERROR
+     UI RENDER
   -------------------------------------------------- */
   if (loading)
-    return <div className="p-10 text-center text-xl">Loading...</div>;
+    return <div className="p-10 text-center text-xl">Loading…</div>;
 
   if (error)
     return (
@@ -244,9 +291,6 @@ export default function AdminActivityLogsPage() {
       </div>
     );
 
-  /* ------------------------------------------------
-     UI STARTS HERE
-  -------------------------------------------------- */
   return (
     <div className="min-h-screen bg-white px-10 py-8">
       <h1 className="text-4xl font-serif font-bold">Activity Logs</h1>
@@ -255,18 +299,19 @@ export default function AdminActivityLogsPage() {
       </p>
 
       {/* FILTER BAR */}
-      <div className="border border-gray-200 rounded-xl p-4 mb-5 bg-white">
+      <div className="border border-gray-200 rounded-xl p-4 mb-6 bg-white">
         <div className="flex flex-wrap gap-4">
-
           {/* Recruiter Filter */}
-          <div className="relative w-44">
+          <div className="relative w-56">
             <select
               value={recruiterFilter}
               onChange={(e) => setRecruiterFilter(e.target.value)}
               className="appearance-none bg-[#FAFAF9] border border-gray-300 rounded-md px-4 pr-10 py-2 text-sm w-full"
             >
-              {recruiters.map((r) => (
-                <option key={r}>{r}</option>
+              {recruiterOptions.map((r) => (
+                <option key={r.value} value={r.value}>
+                  {r.label}
+                </option>
               ))}
             </select>
             <FiChevronDown className="absolute right-3 top-3 text-gray-500" />
@@ -279,14 +324,18 @@ export default function AdminActivityLogsPage() {
               onChange={(e) => setActivityFilter(e.target.value)}
               className="appearance-none bg-[#FAFAF9] border border-gray-300 rounded-md px-4 pr-10 py-2 text-sm w-full"
             >
-              {activities.map((a) => (
-                <option key={a}>{prettyActivity(a)}</option>
-              ))}
+              {["All Activity", ...new Set(logs.map((l) => l.action))].map(
+                (a) => (
+                  <option key={a} value={a}>
+                    {prettyActivity(a)}
+                  </option>
+                )
+              )}
             </select>
             <FiChevronDown className="absolute right-3 top-3 text-gray-500" />
           </div>
 
-          {/* Date Range */}
+          {/* Dates */}
           <input
             type="date"
             value={fromDate}
@@ -301,20 +350,16 @@ export default function AdminActivityLogsPage() {
             className="bg-[#FAFAF9] border border-gray-300 rounded-md px-4 py-2 text-sm w-44"
           />
 
-          {/* Reset */}
-          {(recruiterFilter !== "All Recruiters" ||
+          {(recruiterFilter !== "all" ||
             activityFilter !== "All Activity" ||
             fromDate ||
             toDate) && (
-            <button
-              onClick={resetFilters}
-              className="text-blue-600 text-sm hover:underline"
-            >
+            <button onClick={resetFilters} className="text-blue-600 text-sm">
               Reset
             </button>
           )}
 
-          {/* Export */}
+          {/* CSV Export */}
           <button
             onClick={() => exportCSV(filteredRows)}
             className="bg-lime-400 hover:bg-lime-500 px-5 py-2 rounded-md text-sm flex items-center gap-2"
@@ -326,29 +371,31 @@ export default function AdminActivityLogsPage() {
 
       {/* TABLE */}
       <div className="border border-gray-200 rounded-lg overflow-hidden shadow-sm">
-        {/* Header */}
-        <div className="bg-[#0D3B66] text-white text-sm font-semibold grid grid-cols-[13rem_12rem_16rem_1fr] py-3 px-4">
+        <div className="bg-[#0D3B66] text-white text-sm font-semibold grid grid-cols-[13rem_15rem_16rem_1fr] py-3 px-4">
           <div>TIMESTAMP</div>
           <div>RECRUITER</div>
           <div>ACTIVITY</div>
           <div>DETAILS</div>
         </div>
 
-        {/* Rows */}
         {paginatedRows.map((row, i) => (
           <div
             key={row._id || i}
-            className="grid grid-cols-[13rem_12rem_16rem_1fr] border-b border-gray-200 py-4 px-4 text-sm"
+            className="grid grid-cols-[13rem_15rem_16rem_1fr] border-b border-gray-200 py-4 px-4 text-sm"
           >
             <div>{formatDateTime(row.createdAt)}</div>
 
-            <div>{row.recruiterId?.email || "Unknown"}</div>
+            <div>
+              {row.recruiterId?.name}{" "}
+              <span className="text-gray-500 text-xs">
+                ({row.recruiterId?.email})
+              </span>
+            </div>
 
             <div className="flex items-center gap-2">
               <span className="text-blue-700 text-base">
                 {activityIcon(row.action)}
               </span>
-
               <span
                 className={`px-3 py-1 rounded-full text-xs font-semibold ${activityColorClass(
                   row.action
@@ -372,7 +419,7 @@ export default function AdminActivityLogsPage() {
         <div className="flex gap-2">
           <button
             disabled={currentPage === 1}
-            onClick={() => setCurrentPage((p) => (p > 1 ? p - 1 : p))}
+            onClick={() => setCurrentPage((p) => p - 1)}
             className={`px-3 py-1 border rounded-md ${
               currentPage === 1 ? "opacity-40" : ""
             }`}
@@ -386,7 +433,7 @@ export default function AdminActivityLogsPage() {
 
           <button
             disabled={currentPage === totalPages}
-            onClick={() => setCurrentPage((p) => (p < totalPages ? p + 1 : p))}
+            onClick={() => setCurrentPage((p) => p + 1)}
             className={`px-3 py-1 border rounded-md ${
               currentPage === totalPages ? "opacity-40" : ""
             }`}

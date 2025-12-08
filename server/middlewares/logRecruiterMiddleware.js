@@ -13,6 +13,11 @@ export const logAction = (actionName) => {
         return next();
       }
 
+       // skip system / background lookups
+      if (req.query.noLog === "true") {
+        return next();
+      }
+
       await logRecruiterAction(
         req.user._id || req.user.id,
         actionName,

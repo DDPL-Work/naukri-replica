@@ -7,89 +7,118 @@ import { downloadResumeThunk } from "../../features/slices/recruiterSlice";
 export default function ProfileCard({ data }) {
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const { resumeDownloading } = useSelector((state) => state.recruiter);
 
-  const id = data._id || data.candidateId;
+  // ============================================================
+  // FIX: NORMALIZE DATA FROM MongoDB, Elasticsearch (bulk upload),
+  // and manual uploads (admin panel).
+  // ============================================================
+  const candidate = {
+    ...data,
+    ...(data.source || {}),  // ES results have data in source
+  };
+
+  const id = candidate._id || candidate.candidateId;
+
+  const downloadingMap = useSelector((state) => state.recruiter.downloading);
+  const isDownloading = !!downloadingMap[id];
 
   const handleDownload = () => {
     dispatch(downloadResumeThunk(id));
   };
 
-  const skills =
-    data.skills?.length > 0
-      ? data.skills
-      : data.topSkills?.length > 0
-      ? data.topSkills
-      : [];
+  // FIX: Skills from either Mongo or ElasticSearch
+  const skills = candidate.skills?.length
+    ? candidate.skills
+    : candidate.topSkills?.length
+    ? candidate.topSkills
+    : [];
 
   return (
     <div className="bg-white rounded-lg  outline-1 outline-zinc-200 shadow-sm p-6 flex flex-col gap-4">
+
+      {/* NAME + BUTTONS */}
       <div className="flex items-center justify-between">
-        {" "}
-        {/* NAME + ROLE */}
         <div>
-          <h3 className="text-lg font-bold font-['Calibri'] text-black leading-7">
-            {data.fullName || "Unknown"}
+          <h3 className="text-lg font-bold">
+            {candidate.fullName || "Unknown"}
           </h3>
-          <p className="text-zinc-500 text-base font-['Calibri'] leading-6">
-            {data.designation || "Not available"}
+
+          <p className="text-zinc-500">
+            {candidate.designation || "Not available"}
           </p>
         </div>
-        {/* ACTION BUTTONS */}
+
         <div className="flex flex-col gap-3 mt-3">
           <button
-            onClick={() => navigate(`/recruiter/candidate-profile/${id}`)}
-            className="bg-stone-50  outline-1 outline-zinc-200 rounded-md px-4 py-2 flex items-center gap-2 text-blue-900 text-sm font-['Calibri']"
+            onClick={() =>
+              navigate(`/recruiter/candidate-profile/${id}`)
+            }
+            className="bg-stone-50  outline-1 outline-gray-200 rounded-md px-4 py-2 flex items-center gap-2 text-blue-900 text-sm"
           >
             <FaEye /> View Profile
           </button>
 
           <button
-            disabled={resumeDownloading}
+            disabled={isDownloading}
             onClick={handleDownload}
-            className="bg-lime-400 rounded-md px-5 py-2 flex items-center gap-2 text-black text-sm font-['Calibri'] disabled:bg-gray-300"
+            className={`rounded-md px-5 py-2 flex items-center gap-2 text-black text-sm 
+              ${isDownloading ? "bg-gray-300" : "bg-lime-400"}`}
           >
-            <FaDownload /> Download
+            <FaDownload />
+            {isDownloading ? "Downloading…" : "Download"}
           </button>
         </div>
       </div>
 
-      {/* DETAILS GRID */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-y-2 text-sm font-['Calibri']">
+      {/* DETAILS */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-y-2 text-sm">
+
         <p>
           <span className="text-zinc-500">Experience: </span>
-          <span className="text-blue-900">{data.experience || 0} years</span>
+          <span className="text-blue-900">
+            {candidate.experience || 0} years
+          </span>
         </p>
 
         <p>
           <span className="text-zinc-500">CTC: </span>
           <span className="text-blue-900">
-            {data.ctcExpected || data.ctcCurrent || "—"}
+            {candidate.ctcExpected || candidate.ctcCurrent || "—"}
           </span>
         </p>
 
         <p>
           <span className="text-zinc-500">Company: </span>
-          <span className="text-blue-900">{data.recentCompany || "—"}</span>
+          <span className="text-blue-900">
+            {candidate.recentCompany || "—"}
+          </span>
         </p>
 
         <p>
           <span className="text-zinc-500">Location: </span>
-          <span className="text-blue-900">{data.location || "—"}</span>
+          <span className="text-blue-900">
+            {candidate.location || "—"}
+          </span>
         </p>
 
         <p>
           <span className="text-zinc-500">Portal Date: </span>
           <span className="text-blue-900">
-            {new Date(data.portalDate).toISOString().split("T")[0]}
+            {candidate.portalDate
+              ? new Date(candidate.portalDate)
+                  .toISOString()
+                  .split("T")[0]
+              : "—"}
           </span>
         </p>
 
         <p>
           <span className="text-zinc-500">Apply Date: </span>
           <span className="text-blue-900">
-            {data.applyDate
-              ? new Date(data.applyDate).toISOString().split("T")[0]
+            {candidate.applyDate
+              ? new Date(candidate.applyDate)
+                  .toISOString()
+                  .split("T")[0]
               : "—"}
           </span>
         </p>
@@ -97,10 +126,10 @@ export default function ProfileCard({ data }) {
 
       {/* SKILLS */}
       <div className="flex flex-wrap gap-2 mt-2">
-        {skills.map((s) => (
+        {skills.map((s, i) => (
           <span
-            key={s}
-            className="px-2.5 py-0.5 bg-gray-100 rounded-full text-blue-900 text-xs font-bold font-['Calibri']"
+            key={i}
+            className="px-2.5 py-1 bg-gray-100 rounded-full text-blue-900 text-xs font-bold"
           >
             {s}
           </span>

@@ -73,7 +73,7 @@ export default function ActivityLogsPage() {
     if (candidateCache[id]) return candidateCache[id];
 
     try {
-      const res = await API.get(`/candidates/${id}`);
+      const res = await API.get(`/candidates/${id}?noLog=true`);
       const data = res.data || {};
       // Accept different shapes (some endpoints return { candidate } or direct)
       const candidate = data.candidate || data;

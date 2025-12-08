@@ -102,7 +102,7 @@ export const updateRecruiter = createAsyncThunk(
 // -------------------------------
 export const fetchAnalytics = createAsyncThunk(
   "analytics/fetchAnalytics",
-  async (_, { rejectWithValue, getState }) => {
+  async (params = {}, { rejectWithValue, getState }) => {
     try {
       const token = getState()?.auth?.token;
 
@@ -110,6 +110,7 @@ export const fetchAnalytics = createAsyncThunk(
         headers: {
           Authorization: `Bearer ${token}`,
         },
+        params,
       });
 
       return res.data;

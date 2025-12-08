@@ -6,17 +6,17 @@ import {
   getCandidate,
   searchCandidates,
   updateFeedback,
-  viewResume,         // <-- ADD THIS
+  viewResume,
 } from "../controllers/candidates.controller.js";
 
 import { logAction } from "../middlewares/logRecruiterMiddleware.js";
 
 const router = express.Router();
 
-// Create / update candidate
+// CREATE / UPDATE
 router.post("/", authMiddleware(["RECRUITER", "ADMIN"]), addOrUpdateCandidate);
 
-// Search candidates
+// SEARCH
 router.get(
   "/search",
   authMiddleware(["RECRUITER", "ADMIN"]),
@@ -24,7 +24,7 @@ router.get(
   searchCandidates
 );
 
-// Candidate Profile (NO LIMIT)
+// VIEW PROFILE
 router.get(
   "/:id",
   authMiddleware(["RECRUITER", "ADMIN"]),
@@ -32,7 +32,7 @@ router.get(
   getCandidate
 );
 
-// Update feedback
+// UPDATE FEEDBACK
 router.patch(
   "/:id/feedback",
   authMiddleware(["RECRUITER", "ADMIN"]),
@@ -40,11 +40,11 @@ router.patch(
   updateFeedback
 );
 
-// NEW: View Resume (DAILY LIMIT APPLIES HERE)
+// VIEW RESUME (+ LIMITS)
 router.get(
   "/:id/resume",
   authMiddleware(["RECRUITER", "ADMIN"]),
-  logAction("view_resume"),
+  logAction("resume_download"),
   viewResume
 );
 

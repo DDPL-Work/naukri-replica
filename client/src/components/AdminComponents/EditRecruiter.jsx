@@ -183,32 +183,7 @@ export default function EditRecruiter() {
               </select>
             </div>
 
-            {/* PASSWORD */}
-            <div>
-              <label className="block text-black text-sm font-[Calibri] mb-2">
-                Password (optional)
-              </label>
-              <div className="relative">
-                <input
-                  type={showPassword ? "text" : "password"}
-                  value={formData.password}
-                  placeholder="Enter new password"
-                  onChange={(e) => changeHandler("password", e.target.value)}
-                  className="w-full h-10 bg-[#FCFBF8] border border-[#E0E5EB] 
-                             rounded-md px-3 text-sm text-[#808080] font-[Calibri]"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
-                >
-                  {showPassword ? <FiEyeOff size={18} /> : <FiEye size={18} />}
-                </button>
-              </div>
-              <p className="text-[#808080] text-xs font-[Tahoma] mt-1">
-                Leave blank to keep existing password
-              </p>
-            </div>
+           
           </div>
 
           {/* BUTTONS */}

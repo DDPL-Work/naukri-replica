@@ -4,6 +4,8 @@ import {
   LuLogOut,
   LuSearch,
   LuSettings,
+  LuMenu,
+  LuX
 } from "react-icons/lu";
 import { TbActivityHeartbeat } from "react-icons/tb";
 import { MdGroup, MdAnalytics, MdCloudUpload } from "react-icons/md";
@@ -13,7 +15,7 @@ import { logoutUser } from "../../features/slices/authSlice";
 import { useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 
-export default function Sidebar({ role }) {
+export default function Sidebar({ role, isOpen, onClose }) {
   const location = useLocation();
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -42,7 +44,7 @@ export default function Sidebar({ role }) {
   ];
 
   const recruiterBottom = [
-    { id: "settings", label: "Settings", icon: LuSettings },
+    // { id: "settings", label: "Settings", icon: LuSettings },
     { id: "logout", label: "Logout", icon: LuLogOut },
   ];
 
@@ -81,7 +83,7 @@ export default function Sidebar({ role }) {
   ];
 
   const adminBottom = [
-    { id: "settings", label: "Settings", icon: LuSettings },
+    // { id: "settings", label: "Settings", icon: LuSettings },
     { id: "logout", label: "Logout", icon: LuLogOut },
   ];
 
@@ -101,63 +103,104 @@ export default function Sidebar({ role }) {
     navigate("/login");
   };
 
+  const handleItemClick = (item) => {
+    if (item.id === "logout") {
+      handleLogout();
+    } else {
+      setActiveItem(item.id);
+      // Close sidebar on mobile after clicking a link
+      if (window.innerWidth < 1024) {
+        onClose();
+      }
+    }
+  };
+
   return (
-    <div className="flex h-screen w-66 flex-col bg-[#103c7f] text-white">
-      {/* LOGO */}
-      <div className="p-4">
-        <img src={mavenLogo} alt="logo" />
+    <>
+      {/* Mobile Overlay */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={onClose}
+        />
+      )}
+
+      {/* Sidebar Container */}
+      <div
+        className={`fixed lg:static inset-y-0 left-0 z-50 w-64 lg:w-66 transform transition-transform duration-300 ease-in-out ${
+          isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        } flex h-screen flex-col bg-[#103c7f] text-white`}
+      >
+        {/* Mobile Header */}
+        <div className="flex items-center justify-between p-4 lg:hidden">
+          <div className="flex items-center gap-3">
+            <img src={mavenLogo} alt="logo" className="h-8 w-auto" />
+            <span className="text-lg font-semibold">Maven</span>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-[#1a4d99] rounded-lg"
+          >
+            <LuX size={24} />
+          </button>
+        </div>
+
+        {/* Desktop Logo */}
+        <div className="hidden lg:block p-4">
+          <img src={mavenLogo} alt="logo" className="h-8 w-auto" />
+        </div>
+
+        {/* MENU */}
+        <nav className="flex-1 px-3 py-4 lg:py-6 overflow-y-auto">
+          <ul className="space-y-1 lg:space-y-2">
+            {menu.map((item) => {
+              const Icon = item.icon;
+              const isActive = activeItem === item.id;
+
+              return (
+                <li key={item.id}>
+                  <Link
+                    to={item.to}
+                    onClick={() => {
+                      setActiveItem(item.id);
+                      if (window.innerWidth < 1024) onClose();
+                    }}
+                    className={`flex items-center gap-3 rounded-lg px-3 lg:px-4 py-2.5 lg:py-3 transition-colors text-sm lg:text-base ${
+                      isActive
+                        ? "bg-[#a1db40] text-[#103c7f] font-semibold"
+                        : "text-white hover:bg-[#1a4d99]"
+                    }`}
+                  >
+                    <Icon size={20} className="flex-shrink-0" />
+                    <span className="truncate">{item.label}</span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
+
+        {/* BOTTOM MENU */}
+        <div className="px-3 lg:px-4 py-4 border-t border-[#1a4d99]">
+          <ul className="space-y-1 lg:space-y-2">
+            {bottomMenu.map((item) => {
+              const Icon = item.icon;
+
+              return (
+                <li key={item.id}>
+                  <button
+                    onClick={() => handleItemClick(item)}
+                    className="flex items-center gap-3 rounded-lg px-3 lg:px-4 py-2.5 lg:py-3 hover:bg-[#1a4d99] w-full text-sm lg:text-base"
+                  >
+                    <Icon size={20} className="flex-shrink-0" />
+                    <span className="truncate">{item.label}</span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       </div>
-
-      {/* MENU */}
-      <nav className="flex-1 px-3 py-6">
-        <ul className="space-y-2">
-          {menu.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeItem === item.id;
-
-            return (
-              <li key={item.id}>
-                <Link
-                  to={item.to}
-                  className={`flex items-center gap-3 rounded-lg px-4 py-3 transition-colors ${
-                    isActive
-                      ? "bg-[#a1db40] text-[#103c7f] font-semibold"
-                      : "text-white hover:bg-[#1a4d99]"
-                  }`}
-                >
-                  <Icon size={20} />
-                  <span>{item.label}</span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      </nav>
-
-      {/* BOTTOM MENU */}
-      <div className="px-4 py-4">
-        <ul className="space-y-2">
-          {bottomMenu.map((item) => {
-            const Icon = item.icon;
-
-            return (
-              <li key={item.id}>
-                <button
-                  onClick={() =>
-                    item.id === "logout"
-                      ? handleLogout()
-                      : setActiveItem(item.id)
-                  }
-                  className="flex items-center gap-3 rounded-lg px-4 py-3 hover:bg-[#1a4d99] w-full"
-                >
-                  <Icon size={20} />
-                  <span>{item.label}</span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      </div>
-    </div>
+    </>
   );
 }

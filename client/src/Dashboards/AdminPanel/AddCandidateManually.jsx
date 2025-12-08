@@ -360,7 +360,6 @@ export default function AddCandidateManually() {
           />
 
           {/* PDF UPLOAD (CORRECT) */}
-          {/* PDF UPLOAD (UPDATED WITH CANCEL BUTTON) */}
           <div>
             <label className="text-sm mb-1 block font-medium">
               Upload PDF Resume

@@ -1,31 +1,44 @@
 import Candidate from "../models/candidate.model.js";
 import { v2 as cloudinary } from "cloudinary";
 import fs from "fs";
+import { indexCandidate } from "../services/elasticsearch.service.js";
 
 export const addCandidateManual = async (req, res) => {
   try {
-    let pdfUrl = null;
-    let pdfPublicId = null;
-    console.log("TEMP FILE:", req.file.path);
-    console.log("TEMP SIZE:", fs.statSync(req.file.path).size);
-    console.log("ORIGINAL NAME:", req.file.originalname);
-    console.log("ORIGINAL TYPE:", req.file.mimetype);
-
-    // 1. Upload REAL PDF to Cloudinary
-    if (req.file) {
-      const uploaded = await cloudinary.uploader.upload(req.file.path, {
-        folder: "candidate_resumes",
-        resource_type: "raw",
-        public_id: `candidate_${Date.now()}`,
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "PDF file missing",
       });
-
-      pdfUrl = uploaded.secure_url; // REAL Cloudinary URL
-      pdfPublicId = uploaded.public_id; // Save for delete
-
-      fs.unlinkSync(req.file.path); // delete temp file
     }
 
-    // Helpers
+    // ------------------------------
+    // UPLOAD PDF → CLOUDINARY
+    // ------------------------------
+    const uploaded = await cloudinary.uploader.upload(req.file.path, {
+      folder: "candidate_resumes",
+      resource_type: "auto",
+      format: "pdf",
+      public_id: `candidate_${Date.now()}`,
+      use_filename: true,
+      unique_filename: false,
+    });
+
+    // Viewable PDF URL
+    const viewUrl = cloudinary.url(uploaded.public_id + ".pdf", {
+      resource_type: "image",
+      type: "upload",
+      secure: true,
+    });
+
+    // Remove temp uploaded file
+    try {
+      fs.unlinkSync(req.file.path);
+    } catch (_) {}
+
+    // ------------------------------
+    // Helper Functions
+    // ------------------------------
     const toArray = (val) => {
       try {
         if (!val) return [];
@@ -37,7 +50,6 @@ export const addCandidateManual = async (req, res) => {
     };
 
     const toDate = (val) => {
-      if (!val) return null;
       const d = new Date(val);
       return isNaN(d.getTime()) ? null : d;
     };
@@ -51,6 +63,7 @@ export const addCandidateManual = async (req, res) => {
     const normalizeExperience = (value) => {
       if (!value) return null;
       const cleaned = value.toString().toLowerCase();
+
       if (cleaned.includes("-")) {
         const first = cleaned.split("-")[0].replace(/[^0-9.]/g, "");
         return first ? Number(first) : null;
@@ -67,6 +80,9 @@ export const addCandidateManual = async (req, res) => {
       }
     };
 
+    // ------------------------------
+    // CANDIDATE DATA
+    // ------------------------------
     const unique_id =
       req.body.unique_id ||
       `UID-${Date.now()}-${Math.floor(Math.random() * 9999)}`;
@@ -80,9 +96,8 @@ export const addCandidateManual = async (req, res) => {
       location: req.body.location || null,
       qualification: req.body.qualification || null,
 
-      // Correct PDF fields
-      resumeUrl: pdfUrl,
-      resumePublicId: pdfPublicId,
+      resumeUrl: viewUrl,
+      resumePublicId: uploaded.public_id,
 
       portal: req.body.portal || null,
       portalDate: toDate(req.body.portalDate),
@@ -112,15 +127,29 @@ export const addCandidateManual = async (req, res) => {
       createdBy: req.user?.id || null,
     };
 
+    // ------------------------------
+    // SAVE → MONGO
+    // ------------------------------
     const saved = await Candidate.create(data);
 
-    res.status(201).json({
+    // ------------------------------
+    // INDEX → ELASTICSEARCH
+    // (never block API response)
+    // ------------------------------
+    indexCandidate(saved).catch((err) => {
+      console.error("Elasticsearch indexing failed:", err.message);
+    });
+
+    // ------------------------------
+    // RESPONSE
+    // ------------------------------
+    return res.status(201).json({
       success: true,
       message: "Candidate added successfully",
       candidate: saved,
     });
   } catch (err) {
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: "Failed to add candidate",
       reason: err.message,
