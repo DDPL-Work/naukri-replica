@@ -1,14 +1,31 @@
 import Candidate from "../models/candidate.model.js";
+import { v2 as cloudinary } from "cloudinary";
+import fs from "fs";
 
 export const addCandidateManual = async (req, res) => {
   try {
-    const pdfUrl = req.file ? req.file.path : null;
+    let pdfUrl = null;
+    let pdfPublicId = null;
+    console.log("TEMP FILE:", req.file.path);
+    console.log("TEMP SIZE:", fs.statSync(req.file.path).size);
+    console.log("ORIGINAL NAME:", req.file.originalname);
+    console.log("ORIGINAL TYPE:", req.file.mimetype);
 
-    // Create Cloudinary inline view URL
-    const inlinePdfUrl = pdfUrl
-      ? pdfUrl.replace("/upload/", "/upload/fl_attachment:false/")
-      : null;
+    // 1. Upload REAL PDF to Cloudinary
+    if (req.file) {
+      const uploaded = await cloudinary.uploader.upload(req.file.path, {
+        folder: "candidate_resumes",
+        resource_type: "raw",
+        public_id: `candidate_${Date.now()}`,
+      });
 
+      pdfUrl = uploaded.secure_url; // REAL Cloudinary URL
+      pdfPublicId = uploaded.public_id; // Save for delete
+
+      fs.unlinkSync(req.file.path); // delete temp file
+    }
+
+    // Helpers
     const toArray = (val) => {
       try {
         if (!val) return [];
@@ -20,7 +37,7 @@ export const addCandidateManual = async (req, res) => {
     };
 
     const toDate = (val) => {
-      if (!val || val === "null" || val === "undefined") return null;
+      if (!val) return null;
       const d = new Date(val);
       return isNaN(d.getTime()) ? null : d;
     };
@@ -63,9 +80,9 @@ export const addCandidateManual = async (req, res) => {
       location: req.body.location || null,
       qualification: req.body.qualification || null,
 
-      // FIXED HERE
-      resumeUrl: req.body.resumeUrl || null,
-      pdfFile: inlinePdfUrl,
+      // Correct PDF fields
+      resumeUrl: pdfUrl,
+      resumePublicId: pdfPublicId,
 
       portal: req.body.portal || null,
       portalDate: toDate(req.body.portalDate),
@@ -86,7 +103,6 @@ export const addCandidateManual = async (req, res) => {
 
       topSkills: toArray(req.body.topSkills),
       skillsAll: toArray(req.body.skillsAll),
-
       companyNamesAll: toArray(req.body.companyNamesAll),
 
       feedback: req.body.feedback || null,

@@ -6,6 +6,12 @@ import { logAction } from "../middlewares/logRecruiterMiddleware.js";
 
 const router = express.Router();
 
-router.post("/:id", authMiddleware(["RECRUITER","ADMIN"]), logAction("resume_download"),  downloadResume);
+// GET is the correct HTTP verb for downloading
+router.post(
+  "/:id",
+  authMiddleware(["RECRUITER", "ADMIN"]),
+  logAction("resume_download"),
+  downloadResume
+);
 
 export default router;

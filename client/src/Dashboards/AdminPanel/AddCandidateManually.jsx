@@ -86,13 +86,11 @@ export default function AddCandidateManually() {
 
   const [isAdmin, setIsAdmin] = useState(false);
 
-  /* ------------------------------------------
-      PDF FILE
-  ------------------------------------------- */
+  /* PDF FILE */
   const [pdfFile, setPdfFile] = useState(null);
 
   /* ------------------------------------------
-      FORM DATA — all fields from Mongoose model
+      FORM DATA (Cloudinary handles resume)
   ------------------------------------------- */
   const [formData, setFormData] = useState({
     name: "",
@@ -101,7 +99,6 @@ export default function AddCandidateManually() {
     gender: "",
     location: "",
     qualification: "",
-    resumeUrl: "",
     portal: "",
     portalDate: "",
     experience: "",
@@ -119,16 +116,12 @@ export default function AddCandidateManually() {
 
   const [errors, setErrors] = useState({});
 
-  /* ------------------------------------------
-      TAG INPUTS
-  ------------------------------------------- */
+  /* TAG INPUTS */
   const [topSkills, setTopSkills] = useState([]);
   const [skillsAll, setSkillsAll] = useState([]);
   const [companiesAll, setCompaniesAll] = useState([]);
 
-  /* ------------------------------------------
-      EDUCATION ARRAY
-  ------------------------------------------- */
+  /* EDUCATION ARRAY */
   const [education, setEducation] = useState([
     { degree: "", institute: "", passingYear: "", score: "" },
   ]);
@@ -151,9 +144,7 @@ export default function AddCandidateManually() {
     setEducation((prev) => prev.filter((_, i) => i !== index));
   };
 
-  /* ------------------------------------------
-      VERIFY ADMIN
-  ------------------------------------------- */
+  /* VERIFY ADMIN */
   useEffect(() => {
     const token = sessionStorage.getItem("token");
     if (!token) {
@@ -174,9 +165,7 @@ export default function AddCandidateManually() {
     }
   }, []);
 
-  /* ------------------------------------------
-      FORM VALIDATION
-  ------------------------------------------- */
+  /* FORM VALIDATION */
   const validate = () => {
     const newErrors = {};
     if (!formData.name.trim()) newErrors.name = "Name required";
@@ -185,9 +174,7 @@ export default function AddCandidateManually() {
     return Object.keys(newErrors).length === 0;
   };
 
-  /* ------------------------------------------
-      SUBMIT
-  ------------------------------------------- */
+  /* SUBMIT HANDLER */
   const handleSubmit = () => {
     if (!validate()) return;
 
@@ -201,14 +188,13 @@ export default function AddCandidateManually() {
     fd.append("companyNamesAll", JSON.stringify(companiesAll));
     fd.append("education", JSON.stringify(education));
 
+    // PDF FILE IS SENT HERE (CORRECT)
     if (pdfFile) fd.append("pdfFile", pdfFile);
 
     dispatch(addCandidateManual(fd));
   };
 
-  /* ------------------------------------------
-      SUCCESS HANDLER
-  ------------------------------------------- */
+  /* SUCCESS & ERROR HANDLING */
   useEffect(() => {
     if (manualAddSuccess) {
       toast.success("Candidate added successfully");
@@ -220,7 +206,6 @@ export default function AddCandidateManually() {
         gender: "",
         location: "",
         qualification: "",
-        resumeUrl: "",
         portal: "",
         portalDate: "",
         experience: "",
@@ -240,15 +225,18 @@ export default function AddCandidateManually() {
       setSkillsAll([]);
       setCompaniesAll([]);
       setEducation([{ degree: "", institute: "", passingYear: "", score: "" }]);
+      setPdfFile(null);
+
       dispatch(resetManualAddState());
     }
 
     if (manualAddError) toast.error(manualAddError);
   }, [manualAddSuccess, manualAddError]);
 
-  /* ------------------------------------------
-      UI
-  ------------------------------------------- */
+  console.log("PDF FILE SENDING:", pdfFile);
+
+
+  /* UI */
   if (!isAdmin)
     return (
       <div className="p-8 text-center text-red-600 text-xl">
@@ -371,23 +359,37 @@ export default function AddCandidateManually() {
             onChange={(v) => setFormData({ ...formData, expCTC: v })}
           />
 
-          <Input
-            label="Resume URL (Google Drive)"
-            value={formData.resumeUrl}
-            onChange={(v) => setFormData({ ...formData, resumeUrl: v })}
-          />
-
-          {/* PDF UPLOAD */}
+          {/* PDF UPLOAD (CORRECT) */}
+          {/* PDF UPLOAD (UPDATED WITH CANCEL BUTTON) */}
           <div>
             <label className="text-sm mb-1 block font-medium">
               Upload PDF Resume
             </label>
-            <input
-              type="file"
-              accept="application/pdf"
-              onChange={(e) => setPdfFile(e.target.files[0])}
-              className="w-full border text-[#808080] border-gray-200 rounded-md px-3 h-10 bg-[#FCFBF8]"
-            />
+
+            {/* If NO file selected → Show normal file input */}
+            {!pdfFile && (
+              <input
+                type="file"
+                accept="application/pdf"
+                onChange={(e) => setPdfFile(e.target.files[0])}
+                className="w-full border text-[#808080] border-gray-200 rounded-md px-3 h-10 bg-[#FCFBF8]"
+              />
+            )}
+
+            {/* If file selected → show file name + remove button */}
+            {pdfFile && (
+              <div className="flex items-center justify-between border border-gray-200 rounded-md px-3 h-10 bg-[#FCFBF8]">
+                <span className="text-[#808080] truncate">{pdfFile.name}</span>
+
+                {/* Remove Button */}
+                <button
+                  className="text-red-600 ml-3"
+                  onClick={() => setPdfFile(null)}
+                >
+                  <FiX size={18} />
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -441,7 +443,7 @@ export default function AddCandidateManually() {
           <FiPlus /> Add More Education
         </button>
 
-        {/* TAG INPUT SECTIONS */}
+        {/* TAG INPUTS */}
         <TagInput
           label="Top Skills"
           items={topSkills}
@@ -478,7 +480,7 @@ export default function AddCandidateManually() {
           onChange={(v) => setFormData({ ...formData, jdBrief: v })}
         />
 
-        {/* SUBMIT */}
+        {/* SUBMIT BUTTON */}
         <button
           disabled={manualAddLoading}
           onClick={handleSubmit}
@@ -518,7 +520,6 @@ function Dropdown({ label, options, value, onChange }) {
       <label className="text-sm font-medium mb-1 block">{label}</label>
 
       <div className="relative">
-        {/* Select Box */}
         <select
           className="
             w-full border border-gray-200 rounded-md px-3 pr-10 h-10 
@@ -534,7 +535,6 @@ function Dropdown({ label, options, value, onChange }) {
           ))}
         </select>
 
-        {/* Custom Dropdown Arrow */}
         <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">
           <FaChevronDown />
         </span>

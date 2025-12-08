@@ -97,7 +97,6 @@ export const updateRecruiter = createAsyncThunk(
   }
 );
 
-
 // -------------------------------
 // ADMIN ANALYTICS
 // -------------------------------
@@ -134,13 +133,15 @@ export const addCandidateManual = createAsyncThunk(
       const res = await axios.post(`${API_BASE}/admin/add-manual`, formData, {
         headers: {
           Authorization: `Bearer ${token}`,
+          "Content-Type": "multipart/form-data",
         },
       });
 
       return res.data.candidate;
     } catch (err) {
       return rejectWithValue(
-        err.response?.data?.error ||
+        err.response?.data?.reason ||
+          err.response?.data?.error ||
           err.response?.data?.message ||
           "Failed to add candidate"
       );
