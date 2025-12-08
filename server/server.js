@@ -1,10 +1,10 @@
-import dotenv from "dotenv";
+import 'dotenv/config';
 import app from "./app.js";
 import connectDB from "./config/db.js";
 import { testESConnection, ensureIndex } from "./services/elasticsearch.service.js";
 import runOnce from "./scripts/runOnce.js";
 
-dotenv.config();
+// dotenv.config();
 const PORT = process.env.PORT || 3000;
 
 const startServer = async () => {
