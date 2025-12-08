@@ -53,7 +53,4 @@ app.get("/api/health", (req, res) => res.json({ status: "OK" }));
 // Global error handler
 app.use(errorMiddleware);
 
-// CREATE INDEX IF NOT EXISTS
-await ensureIndex();
-
 export default app;
