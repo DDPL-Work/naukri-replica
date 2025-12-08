@@ -1,39 +1,28 @@
 // server/middlewares/uploadPdf.js
 import multer from "multer";
-import { CloudinaryStorage } from "multer-storage-cloudinary";
-import { v2 as cloudinary } from "cloudinary";
-import "../config/cloudinary.js";  
+import path from "path";
+import fs from "fs";
 
-// storage
-const storage = new CloudinaryStorage({
-  cloudinary,
-  params: {
-    folder: "candidate_resumes",
-    resource_type: "raw",
-    allowed_formats: ["pdf"],
-    public_id: () => `candidate_${Date.now()}`,
-    type:"upload",
-    flags: ["attachment:false"],
+// Temporary folder to store uploaded PDF before Cloudinary upload
+const uploadFolder = "uploads_temp";
+if (!fs.existsSync(uploadFolder)) fs.mkdirSync(uploadFolder);
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadFolder);
   },
+  filename: (req, file, cb) => {
+    cb(null, `resume_${Date.now()}${path.extname(file.originalname)}`);
+  }
 });
 
-// Allow only PDF files
 const fileFilter = (req, file, cb) => {
-  if (
-    file.mimetype === "application/pdf" ||
-    file.originalname.toLowerCase().endsWith(".pdf")
-  ) {
-    cb(null, true);
-  } else {
-    cb(new Error("Only PDF files are allowed"));
-  }
+  if (file.mimetype === "application/pdf") cb(null, true);
+  else cb(new Error("Only PDF allowed"));
 };
 
-// Multer uploader
-const uploader = multer({
+export const uploadPDF = multer({
   storage,
   fileFilter,
   limits: { fileSize: 10 * 1024 * 1024 },
-});
-
-export const uploadPDF = uploader.single("pdfFile");
+}).single("pdfFile");

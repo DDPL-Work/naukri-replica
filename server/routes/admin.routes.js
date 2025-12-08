@@ -16,6 +16,11 @@ router.get("/recruiters", authMiddleware(["ADMIN"]), listRecruiters);
 router.patch("/recruiters/:id", authMiddleware(["ADMIN"]), updateRecruiter);
 router.get("/downloads/summary", authMiddleware(["ADMIN"]), downloadsSummary);
 router.get("/analytics", authMiddleware(["ADMIN"]), analytics);
-router.post("/add-manual", authMiddleware(["ADMIN"]), uploadPDF, addCandidateManual);
+router.post(
+  "/add-manual",
+  authMiddleware(["ADMIN"]),
+  uploadPDF,
+  addCandidateManual
+);
 
 export default router;

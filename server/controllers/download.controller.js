@@ -12,6 +12,7 @@ export const downloadResume = async (req, res, next) => {
   try {
     const candidateId = req.params.id;
     const candidate = await Candidate.findById(candidateId);
+
     if (!candidate)
       return res.status(404).json({ error: "Candidate not found" });
 
@@ -20,18 +21,16 @@ export const downloadResume = async (req, res, next) => {
     // Count today's downloads
     const todayStart = startOfDayUTC();
     const todayEnd = endOfDayUTC();
+
     const todayCount = await DownloadLog.countDocuments({
       userId: user._id,
       downloadedAt: { $gte: todayStart, $lte: todayEnd },
     });
 
-    const limit =
-      user.dailyDownloadLimit || config.defaultDailyDownloadLimit;
+    const limit = user.dailyDownloadLimit || config.defaultDailyDownloadLimit;
 
     if (todayCount >= limit) {
-      return res
-        .status(403)
-        .json({ error: "Daily download limit exceeded" });
+      return res.status(403).json({ error: "Daily download limit exceeded" });
     }
 
     // Log download
@@ -47,22 +46,17 @@ export const downloadResume = async (req, res, next) => {
       payload: { candidateId: candidate._id },
     });
 
-    // -------------------------
-    // THE FIX: PICK RIGHT URL
-    // -------------------------
+    // Return the correct resume URL
     const resumeUrl =
-      candidate.pdfFile || // Cloudinary URL (manual upload)
-      candidate.resumeUrl || // parsed URL (auto parsing)
+      candidate.pdfFile || // Cloudinary manual upload
+      candidate.resumeUrl || // Auto parsing upload
       null;
 
     if (!resumeUrl) {
-      return res.status(400).json({
-        error: "Candidate resume not available",
-      });
+      return res.status(400).json({ error: "Candidate resume not available" });
     }
 
-    // Respond with correct URL
-    res.json({
+    return res.json({
       success: true,
       resumeUrl,
       downloadsToday: todayCount + 1,

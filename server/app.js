@@ -27,7 +27,10 @@ app.use((req, res, next) => {
   if (req.is("multipart/form-data")) return next();
   express.json({ limit: "10mb" })(req, res, next);
 });
-app.use(express.urlencoded({ extended: true }));
+app.use((req, res, next) => {
+  if (req.is("multipart/form-data")) return next();
+  express.urlencoded({ extended: true })(req, res, next);
+});
 
 // Logging
 app.use(morgan("combined", { stream: logger.stream }));

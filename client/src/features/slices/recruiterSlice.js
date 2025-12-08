@@ -149,13 +149,13 @@ const recruiterSlice = createSlice({
         state.resumeDownloading = false;
         state.resumeDownloadData = action.payload;
 
-        const url = action.payload?.resumeUrl;
+        const url = action.payload?.url; // FIXED HERE
 
         if (url) {
-          // FIX: Open Cloudinary PDFs properly
           window.open(url, "_blank", "noopener,noreferrer");
         }
       })
+
       .addCase(downloadResumeThunk.rejected, (state, action) => {
         state.resumeDownloading = false;
         state.resumeDownloadError =

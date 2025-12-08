@@ -183,11 +183,13 @@ export const viewResume = async (req, res, next) => {
     const id = req.params.id;
     const candidate = await Candidate.findById(id);
 
-    if (!candidate || !candidate.resumeUrl) {
+    const resumeUrl = candidate?.pdfFile || candidate?.resumeUrl;
+
+    if (!candidate || !resumeUrl) {
       return res.status(404).json({ error: "Resume not found" });
     }
 
-    // Only limit recruiters
+    // Recruiters have limits, Admins do not
     if (req.user.role === "RECRUITER") {
       const allowed = await canDownloadResume(req.user._id);
       if (!allowed) {
@@ -199,9 +201,10 @@ export const viewResume = async (req, res, next) => {
       await logDownload(req.user._id, candidate._id);
     }
 
-    res.json({ url: candidate.resumeUrl });
+    res.json({ url: resumeUrl });
 
   } catch (err) {
     next(err);
   }
 };
+
