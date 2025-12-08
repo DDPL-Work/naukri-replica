@@ -26,7 +26,7 @@ export const ensureIndex = async () => {
   try {
     const exists = await client.indices.exists({ index: INDEX });
 
-    if (!exists.body) {
+    if (!exists) {
       await client.indices.create({
         index: INDEX,
         body: {
@@ -144,5 +144,17 @@ export const searchCandidatesES = async (queryBody) => {
     throw err;
   }
 };
+
+
+export const testESConnection = async () => {
+  try {
+    const info = await client.info();
+    console.log("[INFO] Connected to Elasticsearch:", info.version.number);
+  } catch (err) {
+    console.error("[ERROR] Elasticsearch connection failed:", err.message);
+    throw err;
+  }
+};
+
 
 export default client;
