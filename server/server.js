@@ -4,33 +4,31 @@ import connectDB from "./config/db.js";
 import { testESConnection, ensureIndex } from "./services/elasticsearch.service.js";
 import runOnce from "./scripts/runOnce.js";
 
-
 dotenv.config();
 const PORT = process.env.PORT || 3000;
 
 const startServer = async () => {
   try {
-    // 1. Connect MongoDB
+    // Connect MongoDB
     await connectDB();
-    console.log(`\n✅Database is connected successfully`);
-    console.log(`✅Server running on port ${PORT}`);
+    console.log(`\n✅ MongoDB connected`);
 
-    // 2. Test Elasticsearch
+    // Test Elasticsearch
     await testESConnection();
 
-    // 3. Ensure ES index exists
+    // Ensure ES index exists
     await ensureIndex();
 
-    // 4. Run bulk-index ONCE
+    // Run bulk index ONCE only
     await runOnce();
 
-    // 5. Start Server
+    // Start Express
     app.listen(PORT, () => {
-      console.log(`\n✅Database is connected successfully`);
-      console.log(`✅Server running on port ${PORT}`);
+      console.log(`\n🚀 Server running at http://localhost:${PORT}\n`);
     });
+
   } catch (err) {
-    console.error("Startup Error:", err);
+    console.error("❌ Server startup error:", err);
     process.exit(1);
   }
 };

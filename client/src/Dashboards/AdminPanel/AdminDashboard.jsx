@@ -25,31 +25,26 @@ export default function AdminDashboard() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
-  const { analyticsData, recruiterCount } = useSelector(
-    (state) => state.admin
-  );
+  const { analyticsData, recruiterCount } = useSelector((state) => state.admin);
 
   const { logs, loading: logsLoading } = useSelector(
     (state) => state.recruiterLogs
   );
 
-  // Local Cache for candidate names
   const [candidateCache, setCandidateCache] = useState({});
 
-  // Fetch Analytics + Recruiter Count + Logs
   useEffect(() => {
     dispatch(fetchAnalytics());
     dispatch(listRecruiters());
     dispatch(fetchRecruiterLogs());
   }, [dispatch]);
 
-  // Fetch candidate name for logs
+  // Fetch candidate names
   const fetchCandidateName = async (id) => {
     if (!id || candidateCache[id]) return;
 
     try {
-      const res = await API.get(`/candidates/${id}`);
-
+      const res = await API.get(`/candidates/${id}?noLog=true`);
       setCandidateCache((prev) => ({
         ...prev,
         [id]: {
@@ -60,63 +55,118 @@ export default function AdminDashboard() {
     } catch (error) {
       setCandidateCache((prev) => ({
         ...prev,
-        [id]: {
-          name: "Unknown",
-          jobTitle: "",
-        },
+        [id]: { name: "Unknown", jobTitle: "" },
       }));
     }
   };
 
-  // =============================
-  // Format Log Details
-  // =============================
+  /* ================================================
+     BEAUTIFIED LOG DETAILS
+  ================================================= */
   const formatLogDetails = (log) => {
     const details = log.details;
+    const action = log.action;
 
-    // Case 1: Candidate View or Download
+    // Candidate views / downloads
     if (details?.params?.id) {
       const id = details.params.id;
 
       if (!candidateCache[id]) {
         fetchCandidateName(id);
-        return "Loading candidate...";
+        return (
+          <span className="text-xs text-gray-500 italic">
+            Loading candidate...
+          </span>
+        );
       }
 
       const { name, jobTitle } = candidateCache[id];
 
-      const cleanJobTitle = jobTitle ? ` (${jobTitle})` : "";
-
-      let label = "Candidate";
-      if (log.action === "resume_download") label = "Resume Downloaded";
-      if (log.action === "view_candidate") label = "Viewed Candidate";
-
-      return `${label}: ${name}${cleanJobTitle}`;
+      return (
+        <div className="text-xs space-y-1">
+          <div>
+            <span className="font-semibold text-black">
+              {action === "resume_download"
+                ? "Downloaded Resume:"
+                : "Viewed Candidate:"}
+            </span>{" "}
+            <span className="text-blue-900 font-semibold">{name}</span>
+            {jobTitle && <span className="text-gray-500"> ({jobTitle})</span>}
+          </div>
+        </div>
+      );
     }
 
-    // Case 2: Search logs
-    if (details?.query?.q) {
-      return `Search: ${details.query.q}`;
+    // Search logs
+    if (details?.query) {
+      const q = details.query;
+
+      return (
+        <div className="text-xs space-y-1 text-gray-700">
+          {q.q && (
+            <div>
+              <span className="font-semibold">Search Text:</span> {q.q}
+            </div>
+          )}
+          {q.location && (
+            <div>
+              <span className="font-semibold">Location:</span> {q.location}
+            </div>
+          )}
+          {Array.isArray(q.skills) && q.skills.length > 0 && (
+            <div>
+              <span className="font-semibold">Skills:</span>{" "}
+              {q.skills.join(", ")}
+            </div>
+          )}
+        </div>
+      );
     }
 
-    // Fallback
-    return JSON.stringify(details);
+    // Login
+    if (action === "login") {
+      return (
+        <div className="text-xs space-y-1">
+          <div>
+            <span className="font-semibold">Status:</span> Logged In
+          </div>
+        </div>
+      );
+    }
+
+    // Logout
+    if (action === "logout") {
+      return (
+        <div className="text-xs space-y-1">
+          <div>
+            <span className="font-semibold">Status:</span> Logged Out
+          </div>
+        </div>
+      );
+    }
+
+    // Fallback JSON pretty formatting
+    return (
+      <pre className="text-xs bg-gray-50 p-2 rounded-md border border-gray-200 whitespace-pre-wrap">
+        {JSON.stringify(details, null, 2)}
+      </pre>
+    );
   };
 
-  // =============================
-  // Log Icon Mapper
-  // =============================
-  const getLogIcon = (action) => {
-    action = action?.toLowerCase() || "";
+  /* ================================================
+     ICON SELECTOR
+  ================================================= */
+  const getLogIcon = (action = "") => {
+    const a = action.toLowerCase();
 
-    if (action.includes("search")) return <FiSearch />;
-    if (action.includes("view")) return <FiEye />;
-    if (action.includes("download")) return <FiDownload />;
-    if (action.includes("login")) return <FiLogIn />;
+    if (a.includes("search")) return <FiSearch />;
+    if (a.includes("view")) return <FiEye />;
+    if (a.includes("download")) return <FiDownload />;
+    if (a.includes("login")) return <FiLogIn />;
+    if (a.includes("logout")) return <FiLogIn />;
     return <FiActivity />;
   };
 
-  // Capitalize action text
   const formatActionText = (action) =>
     action.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
@@ -133,7 +183,7 @@ export default function AdminDashboard() {
         Here’s an overview of your candidate portal.
       </p>
 
-      {/* ================== TOP CARDS ================== */}
+      {/* TOP CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
         <DashboardCard
           icon={<FiUser />}
@@ -143,15 +193,16 @@ export default function AdminDashboard() {
 
         <DashboardCard
           icon={<FiPlusSquare />}
-          title="New Today"
+          title="New Candidates "
           value={analyticsData?.todayCount || 0}
           sub="Today"
         />
 
         <DashboardCard
           icon={<FiCalendar />}
-          title="New This Week"
+          title="New Candidates"
           value={analyticsData?.last7Count || 0}
+          sub="This Week"
         />
 
         <DashboardCard
@@ -161,26 +212,11 @@ export default function AdminDashboard() {
         />
       </div>
 
-      {/* SECOND ROW */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-10">
-        <DashboardCard
-          icon={<FiSearch />}
-          title="Searches Today"
-          value={analyticsData?.searchesToday || 0}
-        />
-
-        <DashboardCard
-          icon={<FiDownload />}
-          title="Downloads Today"
-          value={analyticsData?.downloadsToday || 0}
-        />
-      </div>
-
-      {/* ================== RECENT ACTIVITY ================== */}
+      {/* RECENT ACTIVITY TABLE */}
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
         <div className="flex justify-between items-center px-6 py-4">
           <h2 className="text-lg font-bold font-[Calibri] text-black">
-            Recent Activity
+            Recent Activity of Recruiters
           </h2>
 
           <button

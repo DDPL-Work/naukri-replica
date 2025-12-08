@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo } from "react";
 import { LuDownload, LuSearch, LuActivity, LuArrowRight } from "react-icons/lu";
 import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
@@ -8,25 +8,31 @@ export default function RecruiterDashboard() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
-  // Logs state
-  const { logs, loading, error } = useSelector((state) => state.recruiterLogs);
+  const {
+    logs = [],
+    loading,
+    error,
+  } = useSelector((state) => state.recruiterLogs);
 
-  // Auth user
   const authUser = useSelector((state) => state.auth.user);
 
   useEffect(() => {
     dispatch(fetchRecruiterLogs());
   }, [dispatch]);
 
-  const today = new Date().toISOString().split("T")[0];
-
-  const todayDownloads = logs.filter(
-    (log) => log.action === "resume_download" && log.createdAt.startsWith(today)
-  ).length;
+  const todayISO = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
 
   // -------------------------------------------------------------------
-  // USE REAL DAILY LIMIT FROM BACKEND USER MODEL
+  // TODAY DOWNLOAD COUNT (SERVER LOGS)
   // -------------------------------------------------------------------
+  const todayDownloads = useMemo(() => {
+    return logs.filter(
+      (log) =>
+        log.action === "resume_download" && log.createdAt.startsWith(todayISO)
+    ).length;
+  }, [logs, todayISO]);
+
+  // REAL daily limit from backend user record
   const DAILY_LIMIT = authUser?.dailyDownloadLimit || 10;
 
   const progressPercentage = Math.min(
@@ -34,10 +40,12 @@ export default function RecruiterDashboard() {
     100
   );
 
-  // Recent searches
-  const recentSearches = logs
-    .filter((log) => log.action === "search_candidates")
-    .slice(0, 5);
+  // -------------------------------------------------------------------
+  // RECENT SEARCHES (show last 5)
+  // -------------------------------------------------------------------
+  const recentSearches = useMemo(() => {
+    return logs.filter((log) => log.action === "search_candidates").slice(0, 5);
+  }, [logs]);
 
   return (
     <div className="w-full space-y-10 bg-white">
@@ -98,7 +106,7 @@ export default function RecruiterDashboard() {
 
           <Link
             to="/recruiter/candidate-search"
-            className="w-full text-center text-black text-xs font-normal font-[Calibri] leading-5 rounded-md  outline-1 outline-blue-900 h-7 flex items-center justify-center gap-1"
+            className="w-full text-center text-black text-xs font-normal font-[Calibri] leading-5 rounded-md  outline-1 outline-blue-900 h-7 flex items-center justify-center gap-1 hover:bg-[#a1db40] hover:outline-0 "
           >
             Start New Search <LuArrowRight size={12} />
           </Link>
@@ -119,7 +127,7 @@ export default function RecruiterDashboard() {
 
           <Link
             to="/recruiter/activity-logs"
-            className="w-full text-center text-black text-xs font-normal font-[Calibri] leading-5 rounded-md  outline-1 outline-blue-900 h-7 flex items-center justify-center gap-1"
+            className="w-full text-center text-black text-xs font-normal font-[Calibri] leading-5 rounded-md  outline-1 outline-blue-900 h-7 flex items-center justify-center gap-1 hover:bg-[#a1db40] hover:outline-0"
           >
             Track Activity <LuArrowRight size={12} />
           </Link>
@@ -135,7 +143,7 @@ export default function RecruiterDashboard() {
 
           <Link
             to="/recruiter/activity-logs"
-            className="text-color-azure-25 text-sm font-normal font-[Calibri] leading-5 flex items-center gap-1"
+            className="text-color-azure-25 text-sm font-normal font-[Calibri] leading-5 flex items-center gap-1 hover:text-blue-600"
           >
             View All <LuArrowRight size={14} />
           </Link>

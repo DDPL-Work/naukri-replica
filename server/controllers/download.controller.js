@@ -42,7 +42,7 @@ export const downloadResume = async (req, res, next) => {
 
     await ActivityLog.create({
       userId: user._id,
-      type: "DOWNLOAD",
+      type: "resume_download",
       payload: { candidateId: candidate._id },
     });
 

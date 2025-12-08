@@ -138,8 +138,8 @@ const Login = () => {
           </div>
 
           {/* REMEMBER ME + FORGOT */}
-          <div className="flex justify-between items-center w-full">
-            <div className="flex items-center gap-2">
+          <div className="flex justify-end items-center w-full">
+            {/* <div className="flex items-center gap-2">
               <input
                 type="checkbox"
                 className="w-3 h-3 cursor-pointer border border-zinc-500 rounded-sm"
@@ -147,8 +147,8 @@ const Login = () => {
               <span className="text-zinc-500 text-sm font-normal font-[Calibri] leading-5">
                 Remember me
               </span>
-            </div>
-            <span className="text-neutral-950 text-sm font-normal font-[Calibri] leading-5 cursor-pointer">
+            </div> */}
+            <span className="text-neutral-950 text-sm font-normal font-[Calibri] leading-5 cursor-pointer hover:text-blue-600 hover:underline">
               Forgot password?
             </span>
           </div>
@@ -163,38 +163,38 @@ const Login = () => {
           </button>
 
           {/* DIVIDER */}
-          <div className="relative flex items-center w-full py-2">
+          {/* <div className="relative flex items-center w-full py-2">
             <div className="border-t border-zinc-500 flex-1"></div>
             <span className="px-2 bg-white text-zinc-500 text-xs font-normal font-[Calibri] uppercase leading-4">
               Or continue with
             </span>
             <div className="border-t border-zinc-500 flex-1"></div>
-          </div>
+          </div> */}
 
           {/* GOOGLE BUTTON */}
-          <button className="w-full h-11 bg-stone-50 rounded-[10px]  outline-1 outline-gray-200 cursor-pointer flex items-center justify-center gap-2">
+          {/* <button className="w-full h-11 bg-stone-50 rounded-[10px]  outline-1 outline-gray-200 cursor-pointer flex items-center justify-center gap-2">
             <FcGoogle className="text-xl" />
             <span className="text-neutral-950 text-sm font-normal font-[Calibri] leading-5">
               Sign in with Google
             </span>
-          </button>
+          </button> */}
 
           {/* FOOTER TEXT */}
-          <div className="flex justify-center mt-2">
+          {/* <div className="flex justify-center mt-2">
             <span className="text-zinc-500 text-sm font-normal font-[Calibri] leading-5">
               Don't have an account?
             </span>
             <span className="ml-1 text-neutral-950 text-sm font-normal font-[Calibri] leading-5 cursor-pointer">
               Contact Admin
             </span>
-          </div>
+          </div> */}
         </div>
 
         {/* TERMS */}
         <p className="text-center text-zinc-500 text-xs font-normal font-[Calibri] leading-4 mt-4">
           By signing in, you agree to our{" "}
-          <span className="underline cursor-pointer">Terms of Service</span> and{" "}
-          <span className="underline cursor-pointer">Privacy Policy</span>
+          <span className="underline cursor-pointer hover:text-blue-600">Terms of Service</span> and{" "}
+          <span className="underline cursor-pointer hover:text-blue-600">Privacy Policy</span>
         </p>
       </div>
     </div>

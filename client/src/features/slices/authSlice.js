@@ -27,13 +27,33 @@ export const loginUser = createAsyncThunk(
 );
 
 // ------------------------------------------------------------
-// LOGOUT THUNK
+// LOGOUT  (NOW CALLS BACKEND)
 // ------------------------------------------------------------
-export const logoutUser = createAsyncThunk("auth/logoutUser", async () => {
-  sessionStorage.removeItem("token");
-  sessionStorage.removeItem("user");
-  return true;
-});
+export const logoutUser = createAsyncThunk(
+  "auth/logoutUser",
+  async (_, { getState, rejectWithValue }) => {
+    try {
+      const token = getState().auth.token;
+
+      await axios.post(
+        `${BASE_URL}/auth/logout`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      sessionStorage.removeItem("token");
+      sessionStorage.removeItem("user");
+
+      return true;
+    } catch (err) {
+      return rejectWithValue("Logout failed.");
+    }
+  }
+);
 
 // ------------------------------------------------------------
 // INITIAL STATE
@@ -56,7 +76,6 @@ const authSlice = createSlice({
   name: "auth",
   initialState,
   reducers: {
-    // FIX: renamed to avoid conflict with thunk
     clearAuthState: (state) => {
       state.user = null;
       state.token = null;
@@ -92,6 +111,9 @@ const authSlice = createSlice({
         state.role = null;
         state.error = null;
         state.loading = false;
+      })
+      .addCase(logoutUser.rejected, (state, action) => {
+        state.error = action.payload;
       });
   },
 });

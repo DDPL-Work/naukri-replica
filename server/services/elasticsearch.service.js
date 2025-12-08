@@ -3,11 +3,17 @@ import { Client } from "@elastic/elasticsearch";
 import config from "../config/index.js";
 import logger from "../config/logger.js";
 
+/* -------------------------------------------------------
+   LOG WRAPPER (simple + safe)
+------------------------------------------------------- */
 const log = {
-  info: (...args) => console.log("[INFO]", ...args),
-  error: (...args) => console.error("[ERROR]", ...args),
+  info: (...a) => console.log("[ES INFO]", ...a),
+  error: (...a) => console.error("[ES ERROR]", ...a),
 };
 
+/* -------------------------------------------------------
+   CLIENT INITIALIZATION
+------------------------------------------------------- */
 const client = new Client({
   node: config.esNode,
   auth: {
@@ -17,18 +23,18 @@ const client = new Client({
   tls: { rejectUnauthorized: false },
 });
 
-const INDEX = process.env.ES_INDEX || "candidates";
+export const ES_INDEX = process.env.ES_INDEX || "candidates";
 
 /* -------------------------------------------------------
-   1. Ensure index with CORRECT MAPPINGS
+   1. ENSURE INDEX EXISTS WITH CORRECT MAPPINGS
 ------------------------------------------------------- */
 export const ensureIndex = async () => {
   try {
-    const exists = await client.indices.exists({ index: INDEX });
+    const exists = await client.indices.exists({ index: ES_INDEX });
 
     if (!exists) {
       await client.indices.create({
-        index: INDEX,
+        index: ES_INDEX,
         body: {
           mappings: {
             properties: {
@@ -37,15 +43,15 @@ export const ensureIndex = async () => {
               fullName: { type: "text" },
               designation: { type: "text" },
 
-              topSkills: { type: "text" },
-              skills: { type: "text" },
+              topSkills: { type: "keyword" },
+              skills: { type: "keyword" },
+              companyNamesAll: { type: "keyword" },
 
               recentCompany: { type: "text" },
-              companyNamesAll: { type: "text" },
 
               location: { type: "keyword" },
 
-              experience: { type: "float" },    // Numeric only
+              experience: { type: "float" },
               ctcCurrent: { type: "float" },
               ctcExpected: { type: "float" },
 
@@ -57,104 +63,114 @@ export const ensureIndex = async () => {
         },
       });
 
-      log.info(`Elasticsearch index created: ${INDEX}`);
+      log.info(`Index created: ${ES_INDEX}`);
     }
   } catch (err) {
-    log.error("ES ensureIndex error:", err?.message || err);
+    log.error("ensureIndex error:", err?.message || err);
   }
 };
 
 /* -------------------------------------------------------
-   Helpers to clean data before indexing
+   2. HELPER: CLEAN EXPERIENCE FIELD
 ------------------------------------------------------- */
-const parseExperience = (value) => {
-  if (!value) return null;
+const parseExperience = (val) => {
+  if (!val) return null;
 
-  // If "3-5" → take average = 4 or first value = 3
-  if (typeof value === "string" && value.includes("-")) {
-    const parts = value.split("-");
-    const num = parseFloat(parts[0]);
-    return isNaN(num) ? null : num;
+  if (typeof val === "string") {
+    const cleaned = val.replace(/[^0-9.-]/g, "").trim(); // remove 'years'
+    if (cleaned.includes("-")) {
+      const [low] = cleaned.split("-");
+      return parseFloat(low) || null;
+    }
+    return parseFloat(cleaned) || null;
   }
 
-  const num = parseFloat(value);
-  return isNaN(num) ? null : num;
+  if (typeof val === "number") return val;
+
+  return null;
 };
 
 /* -------------------------------------------------------
-   2. Index Candidate (FIXED)
+   SAFE ARRAY HELPER
+------------------------------------------------------- */
+const toArray = (v) => {
+  if (!v) return [];
+  if (Array.isArray(v)) return v.map(String);
+  return [String(v)];
+};
+
+/* -------------------------------------------------------
+   3. UPSERT CANDIDATE INTO ELASTICSEARCH
 ------------------------------------------------------- */
 export const indexCandidate = async (candidate) => {
   try {
-    const mongoId = candidate._id.toString();
+    const id = candidate._id.toString();
+
+    const body = {
+      candidateId: id,
+
+      fullName: candidate.fullName || candidate.name || "",
+      designation: candidate.designation || "",
+
+      topSkills: toArray(candidate.topSkills),
+      skills: toArray(candidate.skillsAll),
+
+      recentCompany: candidate.recentCompany || "",
+      companyNamesAll: toArray(candidate.companyNamesAll),
+
+      location: candidate.location || "",
+
+      experience: parseExperience(candidate.experience),
+
+      ctcCurrent: Number(candidate.currCTC || 0),
+      ctcExpected: Number(candidate.expCTC || 0),
+
+      portal: candidate.portal || "",
+      portalDate: candidate.portalDate || null,
+      applyDate: candidate.applyDate || null,
+    };
 
     await client.index({
-      index: INDEX,
-      id: mongoId,
-      refresh: true,
-      body: {
-        candidateId: mongoId,
-
-        // FIX: manual candidates use name, bulk ones use fullName
-        fullName: candidate.fullName || candidate.name,
-
-        designation: candidate.designation,
-
-        // FIX: manual candidates use skillsAll
-        topSkills: candidate.topSkills || [],
-        skills: candidate.skillsAll || [],
-
-        recentCompany: candidate.recentCompany,
-        companyNamesAll: candidate.companyNamesAll || [],
-
-        location: candidate.location,
-
-        // FIX: convert "3-5" or "2 Years" → numeric value
-        experience: parseExperience(candidate.experience),
-
-        // FIX: your DB uses currCTC, expCTC
-        ctcCurrent: candidate.currCTC || 0,
-        ctcExpected: candidate.expCTC || 0,
-
-        portal: candidate.portal,
-        portalDate: candidate.portalDate,
-        applyDate: candidate.applyDate,
-      },
+      index: ES_INDEX,
+      id,
+      refresh: true,        // ensure search sees it immediately
+      body,
     });
 
-    log.info("Indexed:", mongoId);
+    log.info("Indexed candidate:", id);
   } catch (err) {
-    log.error("ES indexing error", err);
+    log.error("indexCandidate error:", err?.message || err);
   }
 };
 
 /* -------------------------------------------------------
-   3. Search Wrapper
+   4. SEARCH WRAPPER
 ------------------------------------------------------- */
-export const searchCandidatesES = async (queryBody) => {
+export const searchCandidatesES = async (rawQuery) => {
   try {
     const result = await client.search({
-      index: INDEX,
-      body: queryBody,
+      index: ES_INDEX,
+      body: rawQuery,
     });
 
     return result.hits;
   } catch (err) {
-    log.error("ES search error:", err?.message || err);
+    log.error("searchCandidatesES error:", err?.message || err);
     throw err;
   }
 };
 
-
+/* -------------------------------------------------------
+   5. TEST CONNECTION
+------------------------------------------------------- */
 export const testESConnection = async () => {
   try {
     const info = await client.info();
-    console.log("[INFO] Connected to Elasticsearch:", info.version.number);
+    log.info("Connected to ES:", info.version.number);
   } catch (err) {
-    console.error("[ERROR] Elasticsearch connection failed:", err.message);
+    log.error("Connection failed:", err?.message || err);
     throw err;
   }
 };
-
 
 export default client;

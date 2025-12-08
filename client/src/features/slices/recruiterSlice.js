@@ -23,7 +23,7 @@ export const getCandidateById = createAsyncThunk(
   "recruiter/getCandidateById",
   async (id, { rejectWithValue }) => {
     try {
-      const res = await API.get(`/candidates/${id}`);
+      const res = await API.get(`/candidates/${id}?noLog=true`);
       return res.data;
     } catch (err) {
       const message =
@@ -54,7 +54,13 @@ export const downloadResumeThunk = createAsyncThunk(
   async (candidateId, { rejectWithValue }) => {
     try {
       const res = await API.post(`/downloads/${candidateId}`);
-      return res.data; // { resumeUrl, downloadsToday, limit }
+
+      console.log("DOWNLOAD RESPONSE:", res.data);
+
+      return {
+        candidateId,
+        url: res.data.resumeUrl, // FIXED HERE
+      };
     } catch (err) {
       const message =
         err.response?.data?.error || err.response?.data?.message || err.message;
@@ -62,6 +68,9 @@ export const downloadResumeThunk = createAsyncThunk(
     }
   }
 );
+
+
+export const downloadLogsThunk=  createAsyncThunk()
 
 const recruiterSlice = createSlice({
   name: "recruiter",
@@ -75,7 +84,7 @@ const recruiterSlice = createSlice({
     candidateData: null,
     feedbackUpdating: false,
     feedbackError: null,
-    resumeDownloading: false,
+    downloading: {},
     resumeDownloadError: null,
     resumeDownloadData: null,
   },
@@ -140,24 +149,31 @@ const recruiterSlice = createSlice({
         state.feedbackError = action.payload || "Failed to update feedback";
       })
       // Resume Download
-      // Resume Download
-      .addCase(downloadResumeThunk.pending, (state) => {
-        state.resumeDownloading = true;
+      .addCase(downloadResumeThunk.pending, (state, action) => {
+        const id = action.meta.arg;
+        state.downloading[id] = true;
         state.resumeDownloadError = null;
       })
       .addCase(downloadResumeThunk.fulfilled, (state, action) => {
-        state.resumeDownloading = false;
-        state.resumeDownloadData = action.payload;
+        const { candidateId, url } = action.payload;
 
-        const url = action.payload?.url; // FIXED HERE
+        delete state.downloading[candidateId];
 
         if (url) {
-          window.open(url, "_blank", "noopener,noreferrer");
+          // Auto-download ONLY (no opening same tab)
+          const link = document.createElement("a");
+          link.href = url;
+          link.target = "_blank"; // so it opens in new tab
+          link.download = "resume.pdf";
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
         }
       })
 
       .addCase(downloadResumeThunk.rejected, (state, action) => {
-        state.resumeDownloading = false;
+        const id = action.meta.arg;
+        delete state.downloading[id];
         state.resumeDownloadError =
           action.payload || "Failed to download resume";
       });
