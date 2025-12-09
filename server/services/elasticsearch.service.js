@@ -15,10 +15,9 @@ const log = {
    CLIENT INITIALIZATION
 ------------------------------------------------------- */
 const client = new Client({
-  node: config.esNode,
+   node: process.env.ELASTICSEARCH_NODE,
   auth: {
-    username: process.env.ELASTICSEARCH_USERNAME || "elastic",
-    password: process.env.ELASTICSEARCH_PASSWORD || "",
+    apiKey: process.env.ELASTICSEARCH_API_KEY,
   },
   tls: { rejectUnauthorized: false },
 });
@@ -133,7 +132,7 @@ export const indexCandidate = async (candidate) => {
     await client.index({
       index: ES_INDEX,
       id,
-      refresh: true,        // ensure search sees it immediately
+      refresh: true, // ensure search sees it immediately
       body,
     });
 
