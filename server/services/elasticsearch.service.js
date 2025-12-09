@@ -35,11 +35,41 @@ export const ensureIndex = async () => {
       await client.indices.create({
         index: ES_INDEX,
         body: {
+          settings: {
+            analysis: {
+              analyzer: {
+                ngram_analyzer: {
+                  type: "custom",
+                  tokenizer: "ngram_tokenizer",
+                  filter: ["lowercase"]
+                }
+              },
+              tokenizer: {
+                ngram_tokenizer: {
+                  type: "ngram",
+                  min_gram: 2,
+                  max_gram: 20,
+                  token_chars: ["letter", "digit"]
+                }
+              }
+            }
+          },
           mappings: {
             properties: {
               candidateId: { type: "keyword" },
 
-              fullName: { type: "text" },
+              fullName: {
+                type: "text",
+                fields: {
+                  keyword: { type: "keyword" },
+                  ngram: {
+                    type: "text",
+                    analyzer: "ngram_analyzer",
+                    search_analyzer: "standard"
+                  }
+                }
+              },
+
               designation: { type: "text" },
 
               topSkills: { type: "keyword" },
@@ -56,18 +86,20 @@ export const ensureIndex = async () => {
 
               portal: { type: "keyword" },
               portalDate: { type: "date" },
-              applyDate: { type: "date" },
-            },
-          },
-        },
+              applyDate: { type: "date" }
+            }
+          }
+        }
       });
 
-      log.info(`Index created: ${ES_INDEX}`);
+      log.info(`[ES] Index created with ngram: ${ES_INDEX}`);
     }
   } catch (err) {
-    log.error("ensureIndex error:", err?.message || err);
+    log.error("ensureIndex error:", err);
   }
 };
+
+
 
 /* -------------------------------------------------------
    2. HELPER: CLEAN EXPERIENCE FIELD

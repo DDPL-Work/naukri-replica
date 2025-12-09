@@ -1,37 +1,44 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { FaEye, FaDownload } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { downloadResumeThunk } from "../../features/slices/recruiterSlice";
+import toast from "react-hot-toast";
+import {
+  downloadResumeThunk,
+  clearDownloadError,
+} from "../../features/slices/recruiterSlice";
 
 export default function ProfileCard({ data }) {
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
-  // ============================================================
-  // FIX: NORMALIZE DATA FROM MongoDB, Elasticsearch (bulk upload),
-  // and manual uploads (admin panel).
-  // ============================================================
-  const candidate = {
-    ...data,
-    ...(data.source || {}),  // ES results have data in source
-  };
-
+  // Normalize candidate object
+  const candidate = { ...data, ...(data.source || {}) };
   const id = candidate._id || candidate.candidateId;
 
-  const downloadingMap = useSelector((state) => state.recruiter.downloading);
-  const isDownloading = !!downloadingMap[id];
+  const downloading = useSelector((s) => s.recruiter.downloading[id]);
+  const downloadError = useSelector((s) => s.recruiter.downloadErrors[id]);
+
+  const skills =
+    candidate.skills?.length
+      ? candidate.skills
+      : candidate.topSkills?.length
+      ? candidate.topSkills
+      : [];
+
+  // Show download limit exceeded toast
+  useEffect(() => {
+    if (downloadError) {
+      toast.error(downloadError);
+      dispatch(clearDownloadError(id));
+    }
+  }, [downloadError]);
 
   const handleDownload = () => {
+    if (downloading) return;
+
     dispatch(downloadResumeThunk(id));
   };
-
-  // FIX: Skills from either Mongo or ElasticSearch
-  const skills = candidate.skills?.length
-    ? candidate.skills
-    : candidate.topSkills?.length
-    ? candidate.topSkills
-    : [];
 
   return (
     <div className="bg-white rounded-lg  outline-1 outline-zinc-200 shadow-sm p-6 flex flex-col gap-4">
@@ -39,45 +46,35 @@ export default function ProfileCard({ data }) {
       {/* NAME + BUTTONS */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-bold">
-            {candidate.fullName || "Unknown"}
-          </h3>
-
-          <p className="text-zinc-500">
-            {candidate.designation || "Not available"}
-          </p>
+          <h3 className="text-lg font-bold">{candidate.fullName || "Unknown"}</h3>
+          <p className="text-zinc-500">{candidate.designation || "Not available"}</p>
         </div>
 
         <div className="flex flex-col gap-3 mt-3">
           <button
-            onClick={() =>
-              navigate(`/recruiter/candidate-profile/${id}`)
-            }
+            onClick={() => navigate(`/recruiter/candidate-profile/${id}`)}
             className="bg-stone-50  outline-1 outline-gray-200 rounded-md px-4 py-2 flex items-center gap-2 text-blue-900 text-sm"
           >
             <FaEye /> View Profile
           </button>
 
           <button
-            disabled={isDownloading}
+            disabled={downloading}
             onClick={handleDownload}
             className={`rounded-md px-5 py-2 flex items-center gap-2 text-black text-sm 
-              ${isDownloading ? "bg-gray-300" : "bg-lime-400"}`}
+              ${downloading ? "bg-gray-300" : "bg-lime-400"}`}
           >
             <FaDownload />
-            {isDownloading ? "Downloading…" : "Download"}
+            {downloading ? "Downloading…" : "Download"}
           </button>
         </div>
       </div>
 
       {/* DETAILS */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-y-2 text-sm">
-
         <p>
           <span className="text-zinc-500">Experience: </span>
-          <span className="text-blue-900">
-            {candidate.experience || 0} years
-          </span>
+          <span className="text-blue-900">{candidate.experience || 0} years</span>
         </p>
 
         <p>
@@ -89,25 +86,19 @@ export default function ProfileCard({ data }) {
 
         <p>
           <span className="text-zinc-500">Company: </span>
-          <span className="text-blue-900">
-            {candidate.recentCompany || "—"}
-          </span>
+          <span className="text-blue-900">{candidate.recentCompany || "—"}</span>
         </p>
 
         <p>
           <span className="text-zinc-500">Location: </span>
-          <span className="text-blue-900">
-            {candidate.location || "—"}
-          </span>
+          <span className="text-blue-900">{candidate.location || "—"}</span>
         </p>
 
         <p>
           <span className="text-zinc-500">Portal Date: </span>
           <span className="text-blue-900">
             {candidate.portalDate
-              ? new Date(candidate.portalDate)
-                  .toISOString()
-                  .split("T")[0]
+              ? new Date(candidate.portalDate).toISOString().split("T")[0]
               : "—"}
           </span>
         </p>
@@ -116,9 +107,7 @@ export default function ProfileCard({ data }) {
           <span className="text-zinc-500">Apply Date: </span>
           <span className="text-blue-900">
             {candidate.applyDate
-              ? new Date(candidate.applyDate)
-                  .toISOString()
-                  .split("T")[0]
+              ? new Date(candidate.applyDate).toISOString().split("T")[0]
               : "—"}
           </span>
         </p>
