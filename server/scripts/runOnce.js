@@ -16,7 +16,7 @@ const runOnce = async () => {
   await bulkIndex();
 
   // Write flag so next restart does NOT re-index
-  fs.writeFileSync(flagPath, "done");
+  // fs.writeFileSync(flagPath, "done");
 
   console.log("✅ Bulk indexing finished and flag saved.");
 };
