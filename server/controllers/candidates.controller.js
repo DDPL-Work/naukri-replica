@@ -3,7 +3,10 @@ import ActivityLog from "../models/activityLog.model.js";
 import { upsertCandidate } from "../services/candidate.service.js";
 import { searchCandidatesES } from "../services/elasticsearch.service.js";
 import logger from "../config/logger.js";
-import { canDownloadResume, logDownload } from "../services/download.service.js";
+import {
+  canDownloadResume,
+  logDownload,
+} from "../services/download.service.js";
 import { indexCandidate } from "../services/elasticsearch.service.js";
 
 /* -------------------------------------------------------
@@ -26,7 +29,7 @@ export const addOrUpdateCandidate = async (req, res, next) => {
     await ActivityLog.create({
       userId: req.user._id,
       type: "ADD_CANDIDATE",
-      payload: { candidateId: candidate._id }
+      payload: { candidateId: candidate._id },
     });
 
     res.json({ success: true, candidate });
@@ -69,47 +72,52 @@ export const searchCandidates = async (req, res, next) => {
       query: {
         bool: {
           must: q
-            ? [{
-                multi_match: {
-                  query: q,
-                  type: "best_fields",
-                  fields: [
-                    "fullName^3",
-                    "designation^2",
-                    "topSkills",
-                    "skills",
-                    "recentCompany",
-                    "companyNamesAll",
-                    "location"
-                  ],
-                  fuzziness: "AUTO"
-                }
-              }]
+            ? [
+                {
+                  multi_match: {
+                    query: q,
+                    type: "best_fields",
+                    fields: [
+                      "fullName.ngram^4",
+                      "fullName^2",
+                      "designation^2",
+                      "topSkills",
+                      "skills",
+                      "recentCompany",
+                      "companyNamesAll",
+                      "location",
+                    ],
+                    fuzziness: "AUTO",
+                  },
+                },
+              ]
             : [{ match_all: {} }],
-          filter: []
-        }
-      }
+          filter: [],
+        },
+      },
     };
 
     if (req.query.location) {
-      esQuery.query.bool.filter.push({ term: { location: req.query.location } });
+      esQuery.query.bool.filter.push({
+        term: { location: req.query.location },
+      });
     }
 
     if (req.query.minExp) {
       esQuery.query.bool.filter.push({
-        range: { experience: { gte: Number(req.query.minExp) } }
+        range: { experience: { gte: Number(req.query.minExp) } },
       });
     }
 
     if (req.query.maxExp) {
       esQuery.query.bool.filter.push({
-        range: { experience: { lte: Number(req.query.maxExp) } }
+        range: { experience: { lte: Number(req.query.maxExp) } },
       });
     }
 
     if (req.query.designation) {
       esQuery.query.bool.filter.push({
-        match: { designation: req.query.designation }
+        match: { designation: req.query.designation },
       });
     }
 
@@ -119,7 +127,7 @@ export const searchCandidates = async (req, res, next) => {
         : req.query.skills.split(",").map((s) => s.trim());
 
       esQuery.query.bool.filter.push({
-        terms: { skills: skillsArr }
+        terms: { skills: skillsArr },
       });
     }
 
@@ -134,14 +142,14 @@ export const searchCandidates = async (req, res, next) => {
     const results = hits.map((hit) => ({
       id: hit._id,
       score: hit._score,
-      source: hit._source
+      source: hit._source,
     }));
 
     // Log search
     await ActivityLog.create({
       userId: req.user._id,
       type: "search_candidates",
-      payload: { query: req.query }
+      payload: { query: req.query },
     });
 
     res.json({ total, results });
@@ -165,8 +173,7 @@ export const updateFeedback = async (req, res, next) => {
       { new: true }
     );
 
-    if (!updated)
-      return res.status(404).json({ error: "Candidate not found" });
+    if (!updated) return res.status(404).json({ error: "Candidate not found" });
 
     res.json({ success: true, candidate: updated });
   } catch (err) {
@@ -193,7 +200,7 @@ export const viewResume = async (req, res, next) => {
 
       if (!allowed)
         return res.status(403).json({
-          error: "Daily resume view limit reached"
+          error: "Daily resume view limit reached",
         });
 
       await logDownload(req.user._id, c._id);
