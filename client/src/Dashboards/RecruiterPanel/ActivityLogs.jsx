@@ -15,40 +15,32 @@ const ACTION_MAP = {
   search_candidates: { label: "Search", icon: <FiSearch /> },
   view_candidate: { label: "View", icon: <FiEye /> },
   resume_download: { label: "Download", icon: <FiDownload /> },
-  login: { label: "Login", icon: <FiLogIn /> },
 };
 
 const TAG_CLASS = {
   search: "border border-zinc-200 text-black text-xs font-bold px-2.5 py-0.5 rounded-full",
   view: "border border-zinc-200 text-black text-xs font-bold px-2.5 py-0.5 rounded-full",
   download: "bg-blue-900 text-white text-xs font-bold px-2.5 py-0.5 rounded-full",
-  login: "bg-gray-100 text-black text-xs font-bold px-2.5 py-0.5 rounded-full",
   other: "border border-zinc-200 text-black text-xs font-bold px-2.5 py-0.5 rounded-full",
 };
 
 export default function ActivityLogsPage() {
   const dispatch = useDispatch();
-  const { logs = [], loading, error } = useSelector(
-    (state) => state.recruiterLogs
-  );
+  const { logs = [], loading } = useSelector((state) => state.recruiterLogs);
 
-  // UI state
   const [activityType, setActivityType] = useState("all");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
 
-  // pagination
   const [page, setPage] = useState(1);
   const pageSize = 10;
 
-  // candidate cache for name/title lookups
   const [candidateCache, setCandidateCache] = useState({});
 
   useEffect(() => {
     dispatch(fetchRecruiterLogs());
   }, [dispatch]);
 
-  // reset to first page when filters change or logs update
   useEffect(() => {
     setPage(1);
   }, [activityType, fromDate, toDate, logs.length]);
@@ -58,7 +50,6 @@ export default function ActivityLogsPage() {
     if (a.includes("search")) return "search";
     if (a.includes("view")) return "view";
     if (a.includes("download")) return "download";
-    if (a.includes("login")) return "login";
     return "other";
   };
 
@@ -67,7 +58,7 @@ export default function ActivityLogsPage() {
     return action.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
   };
 
-  // Candidate lookup (caching)
+  // Fetch candidate data for view / download events
   const fetchCandidate = async (id) => {
     if (!id) return null;
     if (candidateCache[id]) return candidateCache[id];
@@ -75,14 +66,16 @@ export default function ActivityLogsPage() {
     try {
       const res = await API.get(`/candidates/${id}?noLog=true`);
       const data = res.data || {};
-      // Accept different shapes (some endpoints return { candidate } or direct)
       const candidate = data.candidate || data;
-      const name = candidate.fullName || candidate.name || "Unknown Candidate";
-      const title = candidate.designation || candidate.jobTitle || "";
-      const formatted = { name, title };
+
+      const formatted = {
+        name: candidate.fullName || candidate.name || "Unknown Candidate",
+        title: candidate.designation || candidate.jobTitle || "",
+      };
+
       setCandidateCache((prev) => ({ ...prev, [id]: formatted }));
       return formatted;
-    } catch (err) {
+    } catch {
       const fallback = { name: "Unknown Candidate", title: "" };
       setCandidateCache((prev) => ({ ...prev, [id]: fallback }));
       return fallback;
@@ -93,29 +86,36 @@ export default function ActivityLogsPage() {
   const filteredLogs = useMemo(() => {
     if (!logs || logs.length === 0) return [];
 
-    return logs.filter((log) => {
-      // Activity type filter
-      if (activityType !== "all") {
-        const t = getTypeFromAction(log.action);
-        if (t !== activityType) return false;
-      }
+    return logs
+      .filter((log) => {
+        const actionLower = log.action?.toLowerCase() || "";
 
-      // Date filters (log.createdAt is assumed ISO string)
-      if (fromDate) {
-        const from = new Date(fromDate);
-        const logDate = new Date(log.createdAt);
-        if (logDate < from) return false;
-      }
-      if (toDate) {
-        // include entire day for toDate
-        const to = new Date(toDate);
-        to.setHours(23, 59, 59, 999);
-        const logDate = new Date(log.createdAt);
-        if (logDate > to) return false;
-      }
+        // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+        // REMOVE login + logout logs completely
+        if (actionLower.includes("login") || actionLower.includes("logout"))
+          return false;
+        // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
-      return true;
-    });
+        if (activityType !== "all") {
+          const t = getTypeFromAction(log.action);
+          if (t !== activityType) return false;
+        }
+
+        if (fromDate) {
+          const from = new Date(fromDate);
+          const logDate = new Date(log.createdAt);
+          if (logDate < from) return false;
+        }
+
+        if (toDate) {
+          const to = new Date(toDate);
+          to.setHours(23, 59, 59, 999);
+          const logDate = new Date(log.createdAt);
+          if (logDate > to) return false;
+        }
+
+        return true;
+      });
   }, [logs, activityType, fromDate, toDate]);
 
   const total = filteredLogs.length;
@@ -124,17 +124,14 @@ export default function ActivityLogsPage() {
   const endIndex = Math.min(startIndex + pageSize, total);
   const pageLogs = filteredLogs.slice(startIndex, startIndex + pageSize);
 
-  // Format details with candidate name resolution
   const formatDetails = (details, action) => {
     if (!details) return "-";
-    if (typeof details === "string") return details;
 
-    // If details.params.id exists, it's a candidate action
     if (details.params?.id) {
       const id = details.params.id;
       const cached = candidateCache[id];
+
       if (!cached) {
-        // start fetch in background
         fetchCandidate(id);
         return <span className="text-xs text-zinc-500">Loading candidate…</span>;
       }
@@ -155,7 +152,6 @@ export default function ActivityLogsPage() {
       );
     }
 
-    // If search query present
     if (details.query) {
       const q = details.query;
       return (
@@ -175,21 +171,10 @@ export default function ActivityLogsPage() {
               <strong className="text-black">Skills:</strong> {q.skills.join(", ")}
             </div>
           )}
-          {q.minExp && (
-            <div>
-              <strong className="text-black">Min Exp:</strong> {q.minExp} yrs
-            </div>
-          )}
-          {q.maxExp && (
-            <div>
-              <strong className="text-black">Max Exp:</strong> {q.maxExp} yrs
-            </div>
-          )}
         </div>
       );
     }
 
-    // default fallback
     return (
       <div className="text-xs text-zinc-600">
         {Object.entries(details).map(([k, v]) => (
@@ -202,17 +187,14 @@ export default function ActivityLogsPage() {
     );
   };
 
-  // Render helpers
   const getIconForType = (type) => {
     switch (type) {
-      case "login":
-        return <FiLogIn className="text-blue-900" />;
       case "search":
         return <FiSearch className="text-blue-900" />;
       case "view":
         return <FiEye className="text-blue-900" />;
       case "download":
-        return <FiDownload className="text-white" />; // white on blue tag
+        return <FiDownload className="text-white" />;
       default:
         return <FiActivity className="text-blue-900" />;
     }
@@ -245,7 +227,6 @@ export default function ActivityLogsPage() {
                 <option value="search">Search</option>
                 <option value="view">View</option>
                 <option value="download">Download</option>
-                <option value="login">Login</option>
               </select>
             </div>
 
@@ -274,10 +255,7 @@ export default function ActivityLogsPage() {
             {/* Buttons */}
             <div className="flex items-center gap-3">
               <button
-                onClick={() => {
-                  // apply filters — already applied by state
-                  setPage(1);
-                }}
+                onClick={() => setPage(1)}
                 className="px-4 py-2 bg-blue-900 text-white rounded-md text-sm"
               >
                 Apply
@@ -320,21 +298,23 @@ export default function ActivityLogsPage() {
 
             {pageLogs.map((log, idx) => {
               const type = getTypeFromAction(log.action);
+
               return (
                 <div
                   key={`${log._id || idx}-${log.createdAt}`}
                   className="grid grid-cols-4 gap-4 items-start py-3 border-b border-zinc-100"
                 >
-                  {/* Type + pill */}
+                  {/* Type */}
                   <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center
-                      ${type === "download" ? "bg-blue-900 text-white" : ""}`}>
+                    <div
+                      className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                        type === "download" ? "bg-blue-900 text-white" : ""
+                      }`}
+                    >
                       {getIconForType(type)}
                     </div>
 
-                    <div className={TAG_CLASS[type] || TAG_CLASS.other}>
-                      {type}
-                    </div>
+                    <div className={TAG_CLASS[type] || TAG_CLASS.other}>{type}</div>
                   </div>
 
                   {/* Action */}
@@ -349,14 +329,14 @@ export default function ActivityLogsPage() {
                   <div className="text-right text-xs text-zinc-500">
                     {log.createdAt
                       ? new Date(log.createdAt).toLocaleString()
-                      : log.timestamp || "-"}
+                      : "-"}
                   </div>
                 </div>
               );
             })}
           </div>
 
-          {/* pagination footer */}
+          {/* pagination */}
           <div className="mt-4 flex items-center justify-between">
             <div className="text-sm text-zinc-600">
               Showing{" "}
@@ -380,17 +360,15 @@ export default function ActivityLogsPage() {
                 Prev
               </button>
 
-              {/* page numbers (condensed) */}
               <div className="hidden sm:flex items-center gap-2 px-2">
                 {Array.from({ length: totalPages }).map((_, i) => {
                   const pageNum = i + 1;
-                  // show only first, last, current ±1
                   const show =
                     pageNum === 1 ||
                     pageNum === totalPages ||
                     Math.abs(pageNum - page) <= 1;
+
                   if (!show) {
-                    // insert ellipsis where appropriate
                     const before = page - 2;
                     const after = page + 2;
                     if (pageNum === before || pageNum === after) {
@@ -398,6 +376,7 @@ export default function ActivityLogsPage() {
                     }
                     return null;
                   }
+
                   return (
                     <button
                       key={pageNum}
