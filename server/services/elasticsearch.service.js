@@ -113,13 +113,12 @@ export const ensureIndex = async () => {
 
 /* ------------------- HELPERS ------------------- */
 const parseExperience = (value) => {
-  if (!value) return null;
-  if (typeof value === "string") {
-    const cleaned = value.replace(/[^0-9.-]/g, "");
-    if (cleaned.includes("-")) return Number(cleaned.split("-")[0]);
-    return Number(cleaned) || null;
-  }
-  return typeof value === "number" ? value : null;
+  if (value === undefined || value === null) return 0;
+
+  const cleaned = String(value).replace(/[^0-9.]/g, "");
+  if (!cleaned) return 0;
+
+  return Number(cleaned);
 };
 
 const toArray = (v) => (Array.isArray(v) ? v : v ? [String(v)] : []);
@@ -284,13 +283,23 @@ export const buildHybridSearchQuery = (q, filters = {}) => {
   /* ---------------------------------------------------------
      EXPERIENCE FILTER
   --------------------------------------------------------- */
-  if (filters.minExp || filters.maxExp) {
-    filter.push({
+  /* EXPERIENCE FILTER */
+  if (minExp !== null && maxExp !== null) {
+    esQuery.query.bool.filter.push({
       range: {
-        experience: {
-          gte: filters.minExp || 0,
-          lte: filters.maxExp || 50,
-        },
+        experience: { gte: minExp, lte: maxExp },
+      },
+    });
+  } else if (minExp !== null) {
+    esQuery.query.bool.filter.push({
+      range: {
+        experience: { gte: minExp },
+      },
+    });
+  } else if (maxExp !== null) {
+    esQuery.query.bool.filter.push({
+      range: {
+        experience: { lte: maxExp },
       },
     });
   }

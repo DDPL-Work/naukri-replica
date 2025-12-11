@@ -75,8 +75,10 @@ export const searchCandidates = async (req, res, next) => {
 
     const skills = Array.isArray(rawSkills) ? rawSkills : [rawSkills];
 
-    const minExp = req.query.minExp ? Number(req.query.minExp) : null;
-    const maxExp = req.query.maxExp ? Number(req.query.maxExp) : null;
+    const minExp =
+      req.query.minExp !== undefined ? Number(req.query.minExp) : null;
+    const maxExp =
+      req.query.maxExp !== undefined ? Number(req.query.maxExp) : null;
 
     const page = Number(req.query.page || 1);
     const size = Number(req.query.size || 20);

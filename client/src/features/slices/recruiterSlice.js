@@ -5,9 +5,28 @@ import API from "../../API/axiosInstance";
 // -----------------------------
 // RESTORE SEARCH STATE FROM LOCAL STORAGE
 // -----------------------------
-const savedSearchState = JSON.parse(
-  localStorage.getItem("searchState") || "{}"
-);
+// -----------------------------
+// SAFE LOCALSTORAGE PARSER
+// -----------------------------
+function loadSearchState() {
+  try {
+    const raw = localStorage.getItem("searchState");
+
+    // If null, empty, or "undefined", return fallback
+    if (!raw || raw === "undefined" || raw === "null") {
+      return {};
+    }
+
+    return JSON.parse(raw);
+  } catch (err) {
+    console.warn("Invalid searchState in localStorage. Resetting...");
+    return {};
+  }
+}
+
+const savedSearchState = loadSearchState();
+
+
 
 // -----------------------------
 // REAL INITIAL STATE (CORRECT & UNIFIED)
