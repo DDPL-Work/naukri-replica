@@ -18,6 +18,7 @@ const ActivityLogSchema = new mongoose.Schema({
       "add_candidate",
       "login",
       "logout",
+      "BULK_UPLOAD"  
     ],
     required: true,
   },

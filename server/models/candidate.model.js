@@ -7,26 +7,26 @@ const candidateSchema = new mongoose.Schema(
 
     // Basic Info
     name: { type: String, required: true },
-    email: { type: String },
-    mobile: { type: String },
+    email: { type: String, required: true },
+    mobile: { type: String, required: true },
     gender: { type: String },
-    location: { type: String },
+    location: { type: String, required: true },
 
     // Highest Qualification (Dropdown)
-    qualification: { type: String },
+    qualification: { type: String, required: true },
 
     // Resume
-    resumeUrl: { type: String },   // Google Drive link
-    pdfFile: { type: String },     // PDF filename stored on server
+    resumeUrl: { type: String }, // Google Drive link
+    pdfFile: { type: String, required: true }, // PDF filename stored on server
 
     // Portal Information
     portal: { type: String },
     portalDate: { type: Date },
 
     // Experience & Job Info
-    experience: { type: String },       // Example: "2 years"
-    relevantExp: { type: Number },      // numeric value
-    designation: { type: String },
+    experience: { type: String }, // Example: "2 years"
+    relevantExp: { type: Number }, // numeric value
+    designation: { type: String, required: true },
     recentCompany: { type: String },
 
     // Education Section (NEW FIELD)
@@ -36,7 +36,7 @@ const candidateSchema = new mongoose.Schema(
         institute: { type: String },
         passingYear: { type: String },
         score: { type: String }, // percentage or CGPA
-      }
+      },
     ],
 
     // Dates
@@ -54,14 +54,22 @@ const candidateSchema = new mongoose.Schema(
 
     // Extra Info
     feedback: { type: String },
-    remark: { type: String },
+    remarks: [
+      {
+        text: { type: String, required: true },
+        email: { type: String, required: true },
+        name: { type: String, required: true },
+        date: { type: Date, default: Date.now },
+      },
+    ],
+
     jdBrief: { type: String },
 
     // Admin Who Added
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User"
-    }
+      ref: "User",
+    },
   },
   { timestamps: true }
 );

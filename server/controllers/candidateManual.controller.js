@@ -102,7 +102,7 @@ export const addCandidateManual = async (req, res) => {
       portal: req.body.portal || null,
       portalDate: toDate(req.body.portalDate),
 
-      experience: req.body.experience || null,
+      experience: normalizeExperience(req.body.experience),
       relevantExp: normalizeExperience(req.body.relevantExp),
 
       designation: req.body.designation || null,

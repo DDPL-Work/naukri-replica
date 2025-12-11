@@ -69,7 +69,7 @@ export default function ActivityLogsPage() {
       const candidate = data.candidate || data;
 
       const formatted = {
-        name: candidate.fullName || candidate.name || "Unknown Candidate",
+        name: candidate.name || candidate.name || "Unknown Candidate",
         title: candidate.designation || candidate.jobTitle || "",
       };
 

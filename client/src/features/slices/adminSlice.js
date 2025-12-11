@@ -71,15 +71,7 @@ export const updateRecruiter = createAsyncThunk(
 
       const res = await axios.patch(
         `${API_BASE}/admin/recruiters/${id}`,
-        {
-          ...(updates.dailyDownloadLimit !== undefined
-            ? { dailyDownloadLimit: updates.dailyDownloadLimit }
-            : {}),
-          ...(updates.dailyViewLimit !== undefined
-            ? { dailyViewLimit: updates.dailyViewLimit }
-            : {}),
-          ...(updates.active !== undefined ? { active: updates.active } : {}),
-        },
+        updates,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -96,6 +88,7 @@ export const updateRecruiter = createAsyncThunk(
     }
   }
 );
+
 
 // -------------------------------
 // ADMIN ANALYTICS

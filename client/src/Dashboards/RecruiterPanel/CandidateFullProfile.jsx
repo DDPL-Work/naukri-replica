@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 
 import { FaEnvelope, FaPhone, FaSuitcase, FaDownload } from "react-icons/fa";
@@ -10,11 +10,15 @@ import {
   getCandidateById,
   updateCandidateFeedback,
 } from "../../features/slices/recruiterSlice";
+
 import toast from "react-hot-toast";
+import { jwtDecode } from "jwt-decode";
 
 export default function CandidateProfilePage() {
   const { id } = useParams();
   const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const Location = useLocation();
 
   const {
     candidateLoading,
@@ -22,36 +26,54 @@ export default function CandidateProfilePage() {
     candidateData: candidate,
   } = useSelector((state) => state.recruiter);
 
-  const [remark, setRemark] = useState("");
+  // INPUT FOR NEW REMARK
+  const [remarkInput, setRemarkInput] = useState("");
 
-  // Fetch candidate data
+  // STORE LOGGED-IN RECRUITER DETAILS
+  const [recruiterInfo, setRecruiterInfo] = useState({
+    name: "Unknown Recruiter",
+    email: "unknown@example.com",
+  });
+
+  // Extract recruiter details from session token
   useEffect(() => {
-    if (id) {
-      dispatch(getCandidateById(id));
+    const token = sessionStorage.getItem("token");
+    if (token) {
+      try {
+        const decoded = jwtDecode(token);
+
+        setRecruiterInfo({
+          name: decoded.name || decoded.fullName || "Recruiter",
+          email: decoded.email || decoded.username || "unknown@example.com",
+        });
+      } catch (err) {
+        console.error("Invalid Token");
+      }
     }
+  }, []);
+
+  // Fetch candidate details
+  useEffect(() => {
+    if (id) dispatch(getCandidateById(id));
   }, [id, dispatch]);
 
-  // Populate remarks after loading candidate
-  useEffect(() => {
-    if (candidate) setRemark(candidate.remark || "");
-  }, [candidate]);
-
-  // Save Feedback / Remark
-  const saveRemarks = () => {
-    dispatch(updateCandidateFeedback({ id, remark }))
-      .unwrap()
-      .then(() => toast.success("Remarks Updated"))
-      .catch(() => toast.error("Failed to update remarks"));
-  };
-
+  // SAFETY FALLBACK WHEN CANDIDATE NOT FOUND
   if (candidateLoading) return <p>Loading...</p>;
   if (candidateError) return <p>Error: {candidateError}</p>;
   if (!candidate) return <p>Candidate Not Found</p>;
 
-  // -----------------------------------------------------
-  // NORMALIZED FIELDS BASED ON YOUR CANDIDATE MODEL
-  // -----------------------------------------------------
-  const fullName = candidate.name || "Unknown";
+  // -------------------------
+  // NORMALIZED CANDIDATE FIELDS
+  // -------------------------
+  const name =
+    candidate.fullName ||
+    candidate.name ||
+    candidate.candidateName ||
+    (candidate.firstName && candidate.lastName
+      ? `${candidate.firstName} ${candidate.lastName}`
+      : null) ||
+    candidate.source?.fullName ||
+    "Unknown";
 
   const designation = candidate.designation || "Not Available";
 
@@ -62,11 +84,10 @@ export default function CandidateProfilePage() {
     : "—";
 
   const location = candidate.location || "—";
+  const company = candidate.recentCompany || "—";
 
   const ctcCurrent = candidate.currCTC ? `${candidate.currCTC} LPA` : "—";
   const ctcExpected = candidate.expCTC ? `${candidate.expCTC} LPA` : "—";
-
-  const company = candidate.recentCompany || "—";
 
   const portalDate = candidate.portalDate
     ? new Date(candidate.portalDate).toISOString().split("T")[0]
@@ -77,32 +98,28 @@ export default function CandidateProfilePage() {
     : "—";
 
   const skills =
-    candidate.skillsAll && candidate.skillsAll.length > 0
+    candidate.skillsAll?.length > 0
       ? candidate.skillsAll
-      : candidate.topSkills && candidate.topSkills.length > 0
+      : candidate.topSkills?.length > 0
       ? candidate.topSkills
       : [];
 
-  // Normalize Cloudinary URL for inline PDF viewing
-  let resumeUrl = candidate.pdfFile || candidate.resumeUrl || null;
-
-  if (resumeUrl && resumeUrl.includes("/upload/")) {
-    resumeUrl = resumeUrl.replace("/upload/", "/upload/fl_attachment:false/");
-  }
-
   const education = candidate.education || [];
 
-  // Work experience fallback logic
+  // Work experience fallback
   const inferredWorkExp = [];
-
   if (candidate.relevantExp || candidate.experience) {
     inferredWorkExp.push({
       role: designation,
-      company: candidate.recentCompany,
+      company: company,
       period: applyDate !== "—" ? `Since ${applyDate}` : "—",
     });
   }
 
+  // Remarks list (array)
+  const remarksList = candidate.remarks || [];
+
+  // Download resume
   const handleResumeDownload = async (candidateId) => {
     try {
       const res = await dispatch(downloadResumeThunk(candidateId)).unwrap();
@@ -114,22 +131,57 @@ export default function CandidateProfilePage() {
     }
   };
 
+  // Add new remark
+  const saveRemarks = () => {
+    if (!remarkInput.trim()) return toast.error("Remark cannot be empty");
+
+    const newRemark = {
+      text: remarkInput.trim(),
+      email: recruiterInfo.email,
+      name: recruiterInfo.name,
+      date: new Date().toISOString(),
+    };
+
+    dispatch(updateCandidateFeedback({ id, remark: newRemark }))
+      .unwrap()
+      .then(() => {
+        toast.success("Remark Added");
+        setRemarkInput("");
+        dispatch(getCandidateById(id)); // refresh fresh data
+      })
+      .catch(() => toast.error("Failed to update remarks"));
+  };
+
   return (
     <div className="w-full space-y-10">
-      {/* PAGE HEADER */}
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Candidate Profile</h1>
-        <p className="text-gray-500 text-sm mt-1">
-          Detailed candidate information
-        </p>
+      <div className="flex items-center justify-between">
+        {/* PAGE HEADER */}
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">
+            Candidate Profile
+          </h1>
+          <p className="text-gray-500 text-sm mt-1">
+            Detailed candidate information
+          </p>
+        </div>
+        {/* BACK BUTTON */}
+        <button
+          onClick={() =>
+            navigate("/recruiter/candidate-search", {
+              state: { prefill: Location.state?.prefill },
+            })
+          }
+          className="bg-stone-100 px-4 py-2 rounded-md border hover:bg-stone-200"
+        >
+          Back to Search
+        </button>
       </div>
 
       {/* PROFILE CARD */}
       <div className="border border-gray-200 rounded-xl bg-white shadow-sm">
-        {/* TOP HEADER */}
         <div className="p-6 bg-[#f6f7f9] rounded-t-xl flex justify-between">
           <div>
-            <h2 className="text-xl font-semibold text-gray-900">{fullName}</h2>
+            <h2 className="text-xl font-semibold text-gray-900">{name}</h2>
             <p className="text-gray-500 text-sm mt-1">{designation}</p>
           </div>
 
@@ -143,7 +195,6 @@ export default function CandidateProfilePage() {
           )}
         </div>
 
-        {/* INFO GRID */}
         <div className="p-6">
           <div className="flex justify-between text-sm">
             <div className="space-y-2">
@@ -242,22 +293,47 @@ export default function CandidateProfilePage() {
         )}
       </div>
 
-      {/* RECRUITER REMARKS */}
+      {/* RECRUITER REMARK INPUT */}
       <div className="border border-gray-200 rounded-xl bg-white shadow-sm p-6">
-        <h2 className="text-xl font-semibold mb-4">Recruiter Remarks</h2>
+        <h2 className="text-xl font-semibold mb-4">Add Remarks</h2>
 
         <textarea
-          value={remark}
-          onChange={(e) => setRemark(e.target.value)}
-          className="w-full border rounded-lg bg-orange-50 h-20 p-2"
+          value={remarkInput}
+          onChange={(e) => setRemarkInput(e.target.value)}
+          placeholder="Write your remark here..."
+          className="w-full focus:outline-0 rounded-lg bg-orange-50 h-24 p-3"
         />
 
         <button
           onClick={saveRemarks}
           className="mt-4 bg-lime-500 hover:bg-lime-600 text-white px-6 py-2 rounded-md"
         >
-          Save Remarks
+          Save Remark
         </button>
+      </div>
+
+      {/* REMARKS HISTORY */}
+      <div className="border border-gray-200 rounded-xl bg-white shadow-sm p-6">
+        <h2 className="text-xl font-semibold mb-4">Remarks History</h2>
+
+        {remarksList.length > 0 ? (
+          <div className="space-y-4">
+            {remarksList.map((r, i) => (
+              <div
+                key={i}
+                className="border border-gray-300 p-3 rounded-lg bg-gray-50"
+              >
+                <p className="text-gray-800">{r.text}</p>
+                <p className="text-xs text-gray-500 mt-2">
+                  By: <span className="font-medium">{r.name}</span> ({r.email})
+                  • {new Date(r.date).toLocaleString()}
+                </p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-gray-500">No remarks yet</p>
+        )}
       </div>
     </div>
   );
