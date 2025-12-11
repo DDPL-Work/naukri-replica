@@ -26,11 +26,9 @@ import {
   PORTAL_OPTIONS,
 } from "../../Data/DummyData.js";
 
-
 /* ------------------------------------------
    OPTIONS
 ------------------------------------------- */
-
 
 /* ------------------------------------------
    MAIN COMPONENT
@@ -176,24 +174,43 @@ export default function AddCandidateManually() {
 
     const fd = new FormData();
 
-    // use customDesignation when 'Other' selected
-    const finalDesignation = formData.designation.trim();
+    // Final designation
+    const finalDesignation =
+      formData.designation === "Other"
+        ? formData.customDesignation
+        : formData.designation;
 
-    const payload = {
-      ...formData,
-      designation: finalDesignation,
-    };
+    // Append ONLY ONCE (prevent duplication)
+    fd.append("name", formData.name);
+    fd.append("email", formData.email);
+    fd.append("mobile", formData.mobile);
+    fd.append("gender", formData.gender);
+    fd.append("location", formData.location);
 
-    Object.entries(payload).forEach(([key, value]) =>
-      fd.append(key, value || "")
-    );
+    // EXACTLY as backend model requires (STRING)
+    fd.append("qualification", formData.qualification);
     fd.append("designation", finalDesignation);
+
+    fd.append("portal", formData.portal);
+    fd.append("portalDate", formData.portalDate);
+    fd.append("experience", formData.experience);
+    fd.append("relevantExp", formData.relevantExp);
+    fd.append("recentCompany", formData.recentCompany);
+    fd.append("applyDate", formData.applyDate);
+    fd.append("callingDate", formData.callingDate);
+    fd.append("currCTC", formData.currCTC);
+    fd.append("expCTC", formData.expCTC);
+    fd.append("feedback", formData.feedback);
+    fd.append("remark", formData.remark);
+    fd.append("jdBrief", formData.jdBrief);
+
+    // Arrays must be JSON strings
     fd.append("topSkills", JSON.stringify(topSkills));
     fd.append("skillsAll", JSON.stringify(skillsAll));
     fd.append("companyNamesAll", JSON.stringify(companiesAll));
     fd.append("education", JSON.stringify(education));
-    fd.append("qualification", formData.qualification);
 
+    // Required by backend
     if (pdfFile) fd.append("pdfFile", pdfFile);
 
     dispatch(addCandidateManual(fd));

@@ -99,6 +99,8 @@ export const addCandidateManual = async (req, res) => {
       resumeUrl: viewUrl,
       resumePublicId: uploaded.public_id,
 
+       pdfFile: uploaded.secure_url,
+
       portal: req.body.portal || null,
       portalDate: toDate(req.body.portalDate),
 
