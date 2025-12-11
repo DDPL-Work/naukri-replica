@@ -28,9 +28,7 @@ export default function EditRecruiter() {
   const [loading, setLoading] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
 
-  // -----------------------------
-  // LOAD RECRUITER DATA
-  // -----------------------------
+  // Load recruiter details
   useEffect(() => {
     if (recruiters.length === 0) {
       dispatch(listRecruiters());
@@ -51,9 +49,7 @@ export default function EditRecruiter() {
     }
   }, [recruiters, id]);
 
-  // -----------------------------
-  // LISTEN FOR UPDATE STATUS
-  // -----------------------------
+  // Listen success / error
   useEffect(() => {
     if (updateSuccess) {
       toast.success("Recruiter updated successfully!");
@@ -69,17 +65,15 @@ export default function EditRecruiter() {
     setFormData((prev) => ({ ...prev, [key]: value }));
   };
 
-  // -----------------------------
-  // SUBMIT FORM
-  // -----------------------------
+  // Handle submit
   const handleSubmit = (e) => {
     e.preventDefault();
 
     const updates = {
       name: formData.name,
       email: formData.email,
-      active: formData.active,
       dailyDownloadLimit: Number(formData.dailyDownloadLimit),
+      active: formData.active,
     };
 
     if (formData.password.trim() !== "") {
@@ -97,7 +91,8 @@ export default function EditRecruiter() {
 
   return (
     <div className="w-full min-h-screen bg-white px-8">
-      {/* PAGE TITLE */}
+
+      {/* PAGE HEADER */}
       <div className="w-full flex flex-col text-left mb-2">
         <h1 className="text-black text-4xl font-bold font-serif leading-[60px]">
           Recruiter Management
@@ -109,15 +104,15 @@ export default function EditRecruiter() {
 
       {/* FORM CONTAINER */}
       <div className="w-full max-w-[1038px] bg-white rounded-lg border border-[#E0E5EB] p-6">
-        <h2 className="text-black text-2xl font-bold font-[Calibri] leading-6 mb-6">
+
+        <h2 className="text-black text-2xl font-bold font-[Calibri] mb-6">
           Edit Recruiter
         </h2>
 
-        {/* FORM GRID */}
         <form onSubmit={handleSubmit}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-14 gap-y-10">
 
-            {/* FULL NAME */}
+            {/* Name */}
             <div>
               <label className="block text-black text-sm font-[Calibri] mb-2">
                 Full Name *
@@ -126,14 +121,14 @@ export default function EditRecruiter() {
                 type="text"
                 value={formData.name}
                 onChange={(e) => changeHandler("name", e.target.value)}
-                className="w-full h-10 bg-[#FCFBF8] border border-[#E0E5EB] 
-                           rounded-md px-3 text-sm text-[#808080] font-[Calibri]"
+                className="w-full h-10 bg-[#FCFBF8] border border-[#E0E5EB]
+                           rounded-md px-3 text-sm text-[#808080]"
                 placeholder="Enter full name"
                 required
               />
             </div>
 
-            {/* EMAIL */}
+            {/* Email (editable now) */}
             <div>
               <label className="block text-black text-sm font-[Calibri] mb-2">
                 Email Address *
@@ -141,14 +136,15 @@ export default function EditRecruiter() {
               <input
                 type="email"
                 value={formData.email}
-                readOnly
-                className="w-full h-10 bg-gray-200 border border-[#E0E5EB] 
-                           rounded-md px-3 text-sm text-gray-600 font-[Calibri] cursor-not-allowed"
+                onChange={(e) => changeHandler("email", e.target.value)}
+                className="w-full h-10 bg-[#FCFBF8] border border-[#E0E5EB]
+                           rounded-md px-3 text-sm text-[#808080]"
                 placeholder="recruiter@company.com"
+                required
               />
             </div>
 
-            {/* DAILY LIMIT */}
+            {/* Daily Limit */}
             <div>
               <label className="block text-black text-sm font-[Calibri] mb-2">
                 Daily Download Limit *
@@ -159,13 +155,13 @@ export default function EditRecruiter() {
                 onChange={(e) =>
                   changeHandler("dailyDownloadLimit", e.target.value)
                 }
-                className="w-full h-10 bg-[#FCFBF8] border border-[#E0E5EB] 
-                           rounded-md px-3 text-sm font-[Calibri]"
+                className="w-full h-10 bg-[#FCFBF8] border border-[#E0E5EB]
+                           rounded-md px-3 text-sm"
                 required
               />
             </div>
 
-            {/* STATUS */}
+            {/* Status */}
             <div>
               <label className="block text-black text-sm font-[Calibri] mb-2">
                 Status *
@@ -175,15 +171,37 @@ export default function EditRecruiter() {
                 onChange={(e) =>
                   changeHandler("active", e.target.value === "true")
                 }
-                className="w-full h-10 bg-[#FCFBF8] border border-[#E0E5EB] 
-                           rounded-md px-3 text-sm font-[Calibri]"
+                className="w-full h-10 bg-[#FCFBF8] border border-[#E0E5EB]
+                           rounded-md px-3 text-sm"
               >
                 <option value="true">Active</option>
                 <option value="false">Inactive</option>
               </select>
             </div>
 
-           
+            {/* PASSWORD FIELD */}
+            <div>
+              <label className="block text-black text-sm font-[Calibri] mb-2">
+                New Password (optional)
+              </label>
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={formData.password}
+                  onChange={(e) => changeHandler("password", e.target.value)}
+                  className="w-full h-10 bg-[#FCFBF8] border border-[#E0E5EB]
+                             rounded-md px-3 pr-10 text-sm text-[#808080]"
+                  placeholder="Enter new password"
+                />
+                <span
+                  className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? <FiEyeOff /> : <FiEye />}
+                </span>
+              </div>
+            </div>
+
           </div>
 
           {/* BUTTONS */}
@@ -191,17 +209,16 @@ export default function EditRecruiter() {
             <button
               type="submit"
               disabled={updateLoading}
-              className={`px-6 py-2 bg-[#A1DB40] rounded-md text-black text-sm font-[Calibri]
+              className={`px-6 py-2 bg-[#A1DB40] rounded-md text-black text-sm
                 ${updateLoading ? "opacity-50 cursor-not-allowed" : ""}`}
             >
               {updateLoading ? "Saving..." : "Save Changes"}
             </button>
 
-            {/* CANCEL BUTTON */}
             <button
               type="button"
               onClick={() => navigate("/admin/recruiter-management")}
-              className="px-6 py-2 bg-gray-200 rounded-md text-black text-sm font-[Calibri] hover:bg-gray-300"
+              className="px-6 py-2 bg-gray-200 rounded-md text-black text-sm hover:bg-gray-300"
             >
               Cancel
             </button>

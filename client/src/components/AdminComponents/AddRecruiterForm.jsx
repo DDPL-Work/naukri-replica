@@ -8,9 +8,11 @@ import { jwtDecode } from "jwt-decode";
 import axios from "axios";
 import { FiEye, FiEyeOff } from "react-icons/fi";
 import toast from "react-hot-toast";
+import { useNavigate } from "react-router-dom";
 
 export default function AddRecruiterForm() {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
 
   const { loading, success, error } = useSelector((state) => state.admin);
 
@@ -97,6 +99,7 @@ export default function AddRecruiterForm() {
     };
 
     dispatch(registerRecruiter(payload));
+    navigate('/admin/recruiter-management')
   };
 
   useEffect(() => {

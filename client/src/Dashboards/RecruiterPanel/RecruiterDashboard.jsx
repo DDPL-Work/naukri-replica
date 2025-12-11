@@ -48,7 +48,7 @@ export default function RecruiterDashboard() {
   }, [logs]);
 
   return (
-    <div className="w-full space-y-10 bg-white">
+    <div className="w-full max-w-7xl mx-auto space-y-10 bg-white">
       {/* TITLE */}
       <div>
         <h1 className="text-black text-4xl font-bold font-serif leading-[60px]">
@@ -186,10 +186,19 @@ export default function RecruiterDashboard() {
                 <button
                   onClick={() =>
                     navigate("/recruiter/candidate-search", {
-                      state: { prefill: item.details?.query },
+                      state: {
+                        prefill: {
+                          q: item.details?.query?.q || "",
+                          location: item.details?.query?.location || "",
+                          minExp: item.details?.query?.minExp || "",
+                          maxExp: item.details?.query?.maxExp || "",
+                          designation: item.details?.query?.designation || "",
+                          skills: item.details?.query?.skills || "",
+                        },
+                      },
                     })
                   }
-                  className="px-3 py-2 bg-stone-50 rounded-[10px]  outline-1 outline-blue-900/20 text-blue-900 text-sm font-normal font-[Calibri] leading-5"
+                  className="px-3 py-2 bg-stone-50 rounded-[10px] outline-1 outline-blue-900/20 text-blue-900 text-sm font-normal font-[Calibri] leading-5"
                 >
                   View Results
                 </button>

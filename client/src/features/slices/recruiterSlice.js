@@ -2,6 +2,55 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import API from "../../API/axiosInstance";
 
+// -----------------------------
+// RESTORE SEARCH STATE FROM LOCAL STORAGE
+// -----------------------------
+const savedSearchState = JSON.parse(
+  localStorage.getItem("searchState") || "{}"
+);
+
+// -----------------------------
+// REAL INITIAL STATE (CORRECT & UNIFIED)
+// -----------------------------
+const initialState = {
+  // ---------------- Candidate Profile ----------------
+  candidateData: null,
+  candidateLoading: false,
+  candidateError: null,
+
+  // ---------------- Search Results -------------------
+  searchResults: [],
+  searchLoading: false,
+  searchError: null,
+  searchTotal: 0,
+
+  // ---------------- Resume Download ------------------
+  downloading: {},
+  downloadErrors: {},
+
+  // ---------------- PERSISTED SEARCH STATE -------------
+  searchState: {
+    filters: savedSearchState.filters || {
+      searchText: "",
+      location: "",
+      minExp: "",
+      maxExp: "",
+      designation: "",
+      skills: [],
+    },
+    page: savedSearchState.page || 1,
+    size: savedSearchState.size || 20,
+    showResults: savedSearchState.showResults || false,
+  },
+};
+
+// -----------------------------
+// SAVE TO LOCAL STORAGE
+// -----------------------------
+function persistSearchState(state) {
+  localStorage.setItem("searchState", JSON.stringify(state.searchState));
+}
+
 // -------------------------------------------------------------
 // SEARCH CANDIDATES
 // -------------------------------------------------------------
@@ -12,11 +61,11 @@ export const searchCandidates = createAsyncThunk(
       const res = await API.get("/candidates/search", { params });
       return res.data;
     } catch (err) {
-      const message =
+      return rejectWithValue(
         err.response?.data?.error ||
-        err.response?.data?.message ||
-        err.message;
-      return rejectWithValue(message);
+          err.response?.data?.message ||
+          err.message
+      );
     }
   }
 );
@@ -31,11 +80,11 @@ export const getCandidateById = createAsyncThunk(
       const res = await API.get(`/candidates/${id}?noLog=true`);
       return res.data;
     } catch (err) {
-      const message =
+      return rejectWithValue(
         err.response?.data?.error ||
-        err.response?.data?.message ||
-        err.message;
-      return rejectWithValue(message);
+          err.response?.data?.message ||
+          err.message
+      );
     }
   }
 );
@@ -50,18 +99,17 @@ export const updateCandidateFeedback = createAsyncThunk(
       const res = await API.patch(`/candidates/${id}/feedback`, { remark });
       return res.data;
     } catch (err) {
-      const message =
+      return rejectWithValue(
         err.response?.data?.error ||
-        err.response?.data?.message ||
-        err.message;
-      return rejectWithValue(message);
+          err.response?.data?.message ||
+          err.message
+      );
     }
   }
 );
 
 // -------------------------------------------------------------
 // DOWNLOAD RESUME
-// Detect limit exceeded → return message clearly
 // -------------------------------------------------------------
 export const downloadResumeThunk = createAsyncThunk(
   "recruiter/downloadResume",
@@ -74,12 +122,13 @@ export const downloadResumeThunk = createAsyncThunk(
         url: res.data.resumeUrl,
       };
     } catch (err) {
-      const message =
-        err.response?.data?.error ||
-        err.response?.data?.message ||
-        "Download failed";
-
-      return rejectWithValue({ candidateId, message });
+      return rejectWithValue({
+        candidateId,
+        message:
+          err.response?.data?.error ||
+          err.response?.data?.message ||
+          "Download failed",
+      });
     }
   }
 );
@@ -89,22 +138,7 @@ export const downloadResumeThunk = createAsyncThunk(
 // -------------------------------------------------------------
 const recruiterSlice = createSlice({
   name: "recruiter",
-  initialState: {
-    searchLoading: false,
-    searchError: null,
-    searchResults: [],
-    searchTotal: 0,
-
-    candidateLoading: false,
-    candidateError: null,
-    candidateData: null,
-
-    feedbackUpdating: false,
-    feedbackError: null,
-
-    downloading: {},               // { candidateId: true }
-    downloadErrors: {},            // { candidateId: "Limit exceeded" }
-  },
+  initialState, // ⭐ USE THE CORRECT MERGED INITIAL STATE
 
   reducers: {
     resetCandidateState(state) {
@@ -112,12 +146,34 @@ const recruiterSlice = createSlice({
       state.candidateError = null;
       state.candidateData = null;
     },
+
+    // ⭐ Save search state when clicking View Profile
+    setSearchState(state, action) {
+      state.searchState = action.payload;
+      persistSearchState(state);
+    },
+
+    // ⭐ Reset search filters & UI
     resetSearchState(state) {
-      state.searchLoading = false;
-      state.searchError = null;
+      state.searchState = {
+        filters: {
+          searchText: "",
+          location: "",
+          minExp: "",
+          maxExp: "",
+          designation: "",
+          skills: [],
+        },
+        page: 1,
+        size: 20,
+        showResults: false,
+      };
+
       state.searchResults = [];
       state.searchTotal = 0;
+      persistSearchState(state);
     },
+
     clearDownloadError(state, action) {
       delete state.downloadErrors[action.payload];
     },
@@ -125,10 +181,7 @@ const recruiterSlice = createSlice({
 
   extraReducers: (builder) => {
     builder
-
-      // ---------------------------------------------------------
-      // SEARCH
-      // ---------------------------------------------------------
+      // -------------------- SEARCH --------------------
       .addCase(searchCandidates.pending, (state) => {
         state.searchLoading = true;
         state.searchError = null;
@@ -137,15 +190,14 @@ const recruiterSlice = createSlice({
         state.searchLoading = false;
         state.searchResults = action.payload.results || [];
         state.searchTotal = action.payload.total || 0;
+        persistSearchState(state);
       })
       .addCase(searchCandidates.rejected, (state, action) => {
         state.searchLoading = false;
         state.searchError = action.payload;
       })
 
-      // ---------------------------------------------------------
-      // CANDIDATE DETAIL
-      // ---------------------------------------------------------
+      // -------------------- CANDIDATE DETAIL --------------------
       .addCase(getCandidateById.pending, (state) => {
         state.candidateLoading = true;
         state.candidateError = null;
@@ -159,39 +211,29 @@ const recruiterSlice = createSlice({
         state.candidateError = action.payload;
       })
 
-      // ---------------------------------------------------------
-      // UPDATE FEEDBACK
-      // ---------------------------------------------------------
+      // -------------------- FEEDBACK UPDATE --------------------
       .addCase(updateCandidateFeedback.pending, (state) => {
         state.feedbackUpdating = true;
       })
       .addCase(updateCandidateFeedback.fulfilled, (state, action) => {
         state.feedbackUpdating = false;
-        if (state.candidateData) {
-          state.candidateData.remark = action.meta.arg.remark;
-        }
       })
       .addCase(updateCandidateFeedback.rejected, (state, action) => {
         state.feedbackUpdating = false;
         state.feedbackError = action.payload;
       })
 
-      // ---------------------------------------------------------
-      // DOWNLOAD RESUME
-      // ---------------------------------------------------------
+      // -------------------- RESUME DOWNLOAD --------------------
       .addCase(downloadResumeThunk.pending, (state, action) => {
         const id = action.meta.arg;
         state.downloading[id] = true;
-        delete state.downloadErrors[id];       // Clear previous error
+        delete state.downloadErrors[id];
       })
-
       .addCase(downloadResumeThunk.fulfilled, (state, action) => {
         const { candidateId, url } = action.payload;
-
         delete state.downloading[candidateId];
         delete state.downloadErrors[candidateId];
 
-        // Auto-download
         if (url) {
           const link = document.createElement("a");
           link.href = url;
@@ -202,19 +244,21 @@ const recruiterSlice = createSlice({
           link.remove();
         }
       })
-
       .addCase(downloadResumeThunk.rejected, (state, action) => {
         const { candidateId, message } = action.payload;
-
         delete state.downloading[candidateId];
-        state.downloadErrors[candidateId] = message; // store error per candidate
+        state.downloadErrors[candidateId] = message;
       });
   },
 });
 
+// -----------------------------
+// EXPORT ACTIONS & REDUCER
+// -----------------------------
 export const {
   resetCandidateState,
   resetSearchState,
+  setSearchState,
   clearDownloadError,
 } = recruiterSlice.actions;
 

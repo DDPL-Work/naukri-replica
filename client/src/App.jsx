@@ -20,7 +20,7 @@ function App() {
             color: "#1a1a1a",
              zIndex: "999999",
             fontSize: "15px",
-            margin: "50px 0px",
+            marginTop: "50px",
             padding: "12px 16px",
             borderRadius: "8px",
             border: "1px solid #e0e5eb",

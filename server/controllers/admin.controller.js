@@ -3,13 +3,17 @@ import User from "../models/user.model.js";
 import DownloadLog from "../models/downloadLog.model.js";
 import ActivityLog from "../models/activityLog.model.js";
 import Candidate from "../models/candidate.model.js";
+import bcrypt from "bcryptjs";
 
 /**
  * List recruiters (admin only)
  */
 export const listRecruiters = async (req, res, next) => {
   try {
-    const recruiters = await User.find({ role: "RECRUITER" }, "-password").lean();
+    const recruiters = await User.find(
+      { role: "RECRUITER" },
+      "-password"
+    ).lean();
     res.json({ recruiters });
   } catch (err) {
     next(err);
@@ -22,23 +26,32 @@ export const listRecruiters = async (req, res, next) => {
 export const updateRecruiter = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { dailyDownloadLimit, active } = req.body;
 
-    const updated = await User.findByIdAndUpdate(
-      id,
-      { $set: {
-          ...(dailyDownloadLimit !== undefined ? { dailyDownloadLimit } : {}),
-          ...(active !== undefined ? { active } : {})
-      }},
-      { new: true }
-    );
+    const user = await User.findById(id);
+    if (!user) return res.status(404).json({ error: "Recruiter not found" });
 
-    res.json({ recruiter: updated });
+    // Update fields
+    if (req.body.name !== undefined) user.name = req.body.name;
+    if (req.body.email !== undefined) user.email = req.body.email;
+
+    if (req.body.dailyDownloadLimit !== undefined)
+      user.dailyDownloadLimit = req.body.dailyDownloadLimit;
+
+    if (req.body.active !== undefined) user.active = req.body.active;
+
+    // Update password (with hashing)
+    if (req.body.password && req.body.password.trim() !== "") {
+      const salt = await bcrypt.genSalt(10);
+      user.password = await bcrypt.hash(req.body.password, salt);
+    }
+
+    const updated = await user.save();
+
+    return res.json({ recruiter: updated });
   } catch (err) {
     next(err);
   }
 };
-
 
 /**
  * Get today's downloads per recruiter (summary)
@@ -62,12 +75,12 @@ export const downloadsSummary = async (req, res, next) => {
   }
 };
 
+
 /**
  * Advanced Analytics Controller
  */
 export const analytics = async (req, res, next) => {
   try {
-    // -------------------- BASIC COUNTS --------------------
     const totalCandidates = await Candidate.countDocuments();
 
     const today = new Date();
@@ -84,124 +97,119 @@ export const analytics = async (req, res, next) => {
       createdAt: { $gte: last7 },
     });
 
-    // -------------------- TOP LOCATIONS --------------------
-    const topLocations = await Candidate.aggregate([
-      {
-        $match: {
-          location: { $exists: true, $ne: null, $ne: "" },
-        },
-      },
-      {
-        $group: {
-          _id: "$location",
-          count: { $sum: 1 },
-        },
-      },
+    // ---------------------------------------
+    // LOCATION COUNTS (ALL LOCATIONS)
+    // ---------------------------------------
+    const locationCounts = await Candidate.aggregate([
+      { $match: { location: { $exists: true, $ne: "" } } },
+      { $group: { _id: "$location", count: { $sum: 1 } } },
       { $sort: { count: -1 } },
-      { $limit: 10 },
     ]);
 
-    // -------------------- TOP SKILLS --------------------
-    const topSkills = await Candidate.aggregate([
+    // ---------------------------------------
+    // SKILL COUNTS (ALL SKILLS)
+    // ---------------------------------------
+    const skillCounts = await Candidate.aggregate([
+      { $project: { allSkills: "$skillsAll" } },
+      { $unwind: "$allSkills" },
+      { $group: { _id: "$allSkills", count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+    ]);
+
+    // ---------------------------------------
+    // DESIGNATION COUNTS (ALL TITLES)
+    // ---------------------------------------
+    const designationCounts = await Candidate.aggregate([
+      { $match: { designation: { $exists: true, $ne: "" } } },
+      { $group: { _id: "$designation", count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+    ]);
+
+    // ---------------------------------------
+    // COMPANY COUNTS (ALL RECENT COMPANIES)
+    // ---------------------------------------
+    const companyCounts = await Candidate.aggregate([
+      { $match: { recentCompany: { $exists: true, $ne: "" } } },
+      { $group: { _id: "$recentCompany", count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+    ]);
+
+    // ---------------------------------------
+    // PORTAL COUNTS (ALL SOURCES)
+    // ---------------------------------------
+    const portalCounts = await Candidate.aggregate([
+      { $match: { portal: { $exists: true, $ne: "" } } },
+      { $group: { _id: "$portal", count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+    ]);
+
+    // ---------------------------------------
+    // EXPERIENCE COUNTS (EXACT YEARS)
+    // ---------------------------------------
+    const experienceCounts = await Candidate.aggregate([
       {
-        $match: { skills: { $exists: true, $ne: null } }
+        $addFields: {
+          expString: { $toString: "$experience" }
+        }
       },
       {
-        $project: {
-          skills: {
-            $cond: {
-              if: { $isArray: "$skills" },
-              then: "$skills",
-              else: []
+        $addFields: {
+          extracted: {
+            $regexFind: {
+              input: "$expString",
+              regex: /([0-9]+(\.[0-9]+)?)/  
             }
           }
         }
       },
-      { $unwind: "$skills" },
       {
-        $group: {
-          _id: "$skills",
-          count: { $sum: 1 },
+        $addFields: {
+          parsedExp: {
+            $cond: [
+              { $gt: ["$extracted", null] },
+              { $toDouble: "$extracted.match" },
+              null
+            ]
+          }
         }
       },
-      { $sort: { count: -1 } },
-      { $limit: 10 }
-    ]);
-
-    // -------------------- RESUME SOURCE ANALYTICS --------------------
-    const portalStats = await Candidate.aggregate([
       {
-        $match: { portal: { $exists: true, $ne: null, $ne: "" } }
-      },
-      {
-        $group: {
-          _id: "$portal",
-          count: { $sum: 1 }
+        $addFields: {
+          expYear: {
+            $cond: [
+              { $eq: ["$parsedExp", null] },
+              null,
+              { $floor: "$parsedExp" }
+            ]
+          }
         }
       },
-      { $sort: { count: -1 } }
-    ]);
-
-    // -------------------- DAILY UPLOAD TREND (LAST 30 DAYS) --------------------
-    const last30 = new Date();
-    last30.setDate(last30.getDate() - 30);
-
-    const last30Trend = await Candidate.aggregate([
-      {
-        $match: { createdAt: { $gte: last30 } }
-      },
+      { $match: { expYear: { $ne: null } } },
       {
         $group: {
-          _id: {
-            $dateToString: { format: "%Y-%m-%d", date: "$createdAt" }
-          },
+          _id: "$expYear",
           count: { $sum: 1 }
         }
       },
       { $sort: { _id: 1 } }
     ]);
 
-    // -------------------- TOP JOB TITLES --------------------
-    const topDesignations = await Candidate.aggregate([
-      {
-        $match: { designation: { $exists: true, $ne: null, $ne: "" } }
-      },
-      {
-        $group: {
-          _id: "$designation",
-          count: { $sum: 1 }
-        }
-      },
-      { $sort: { count: -1 } },
-      { $limit: 10 }
-    ]);
-
-    // -------------------- EXPERIENCE RANGE BUCKETS --------------------
-    const experienceBuckets = await Candidate.aggregate([
-      {
-        $bucket: {
-          groupBy: "$experience",
-          boundaries: [0, 2, 5, 10, 20, 50],
-          default: "Unknown",
-          output: { count: { $sum: 1 } }
-        }
-      }
-    ]);
-
-    // -------------------- SEND ALL IN ONE RESPONSE --------------------
+    // ---------------------------------------
+    // FINAL RESPONSE (MOST IMPORTANT PART)
+    // ---------------------------------------
     res.json({
       totalCandidates,
       todayCount,
       last7Count,
 
-      topLocations,
-      topSkills,
-
-      portalStats,
-      last30Trend,
-      topDesignations,
-      experienceBuckets,
+      locationCounts,
+      skillCounts,
+      designationCounts,
+      companyCounts,
+      portalCounts,
+      experienceCounts,
     });
+
   } catch (err) {
     console.error("Analytics error:", err);
     next(err);

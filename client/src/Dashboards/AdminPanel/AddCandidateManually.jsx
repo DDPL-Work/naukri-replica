@@ -18,80 +18,32 @@ import {
 } from "react-icons/fi";
 import { FaChevronDown } from "react-icons/fa";
 
+import {
+  LOCATION_OPTIONS,
+  DESIGNATION_OPTIONS,
+  DEGREE_OPTIONS,
+  GENDER_OPTIONS,
+  PORTAL_OPTIONS,
+} from "../../Data/DummyData.js";
+
+
 /* ------------------------------------------
-   DROPDOWN OPTIONS
+   OPTIONS
 ------------------------------------------- */
-const DEGREE_OPTIONS = [
-  "10th",
-  "12th",
-  "Diploma",
-  "B.Tech",
-  "B.E",
-  "B.Sc",
-  "BCA",
-  "B.Com",
-  "BBA",
-  "BA",
-  "B.Arch",
-  "B.Pharm",
-  "B.Ed",
-  "M.Tech",
-  "M.E",
-  "M.Sc",
-  "MCA",
-  "M.Com",
-  "MBA",
-  "MA",
-  "M.Arch",
-  "M.Ed",
-  "PhD",
-  "Other",
-];
 
-const DESIGNATION_OPTIONS = [
-  "Software Engineer",
-  "Full Stack Developer",
-  "Frontend Developer",
-  "Backend Developer",
-  "React Developer",
-  "Node.js Developer",
-  "Java Developer",
-  "Python Developer",
-  "Data Analyst",
-  "Business Analyst",
-  "QA Tester",
-  "Android Developer",
-  "iOS Developer",
-  "DevOps Engineer",
-  "ML Engineer",
-  "Project Manager",
-  "Scrum Master",
-  "UI/UX Designer",
-  "HR Recruiter",
-  "Sales Executive",
-  "Customer Support",
-  "Digital Marketer",
-  "Network Engineer",
-];
 
-const GENDER_OPTIONS = ["Male", "Female", "Other"];
-const PORTAL_OPTIONS = ["Naukri", "LinkedIn", "Indeed", "Referral", "Other"];
-
+/* ------------------------------------------
+   MAIN COMPONENT
+------------------------------------------- */
 export default function AddCandidateManually() {
   const dispatch = useDispatch();
-
   const { manualAddLoading, manualAddSuccess, manualAddError } = useSelector(
     (state) => state.admin
   );
 
   const [isAdmin, setIsAdmin] = useState(false);
-
-  /* PDF FILE */
   const [pdfFile, setPdfFile] = useState(null);
 
-  /* ------------------------------------------
-      FORM DATA (Cloudinary handles resume)
-  ------------------------------------------- */
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -104,6 +56,7 @@ export default function AddCandidateManually() {
     experience: "",
     relevantExp: "",
     designation: "",
+    customDesignation: "", // for "Other"
     recentCompany: "",
     applyDate: "",
     callingDate: "",
@@ -116,12 +69,10 @@ export default function AddCandidateManually() {
 
   const [errors, setErrors] = useState({});
 
-  /* TAG INPUTS */
   const [topSkills, setTopSkills] = useState([]);
   const [skillsAll, setSkillsAll] = useState([]);
   const [companiesAll, setCompaniesAll] = useState([]);
 
-  /* EDUCATION ARRAY */
   const [education, setEducation] = useState([
     { degree: "", institute: "", passingYear: "", score: "" },
   ]);
@@ -144,7 +95,9 @@ export default function AddCandidateManually() {
     setEducation((prev) => prev.filter((_, i) => i !== index));
   };
 
-  /* VERIFY ADMIN */
+  /* ------------------------------------------
+     VERIFY ADMIN
+  ------------------------------------------- */
   useEffect(() => {
     const token = sessionStorage.getItem("token");
     if (!token) {
@@ -165,40 +118,95 @@ export default function AddCandidateManually() {
     }
   }, []);
 
-  /* FORM VALIDATION */
+  /* ------------------------------------------
+     VALIDATION
+  ------------------------------------------- */
   const validate = () => {
     const newErrors = {};
-    if (!formData.name.trim()) newErrors.name = "Name required";
-    if (!formData.mobile.trim()) newErrors.mobile = "Mobile required";
+
+    // Name
+    if (!formData.name.trim()) newErrors.name = "Name is required";
+
+    // Email
+    if (!formData.email.trim()) {
+      newErrors.email = "Email is required";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = "Enter a valid email";
+    }
+
+    // Mobile (10 digits)
+    const mobileClean = (formData.mobile || "").toString().replace(/\D/g, "");
+    if (!mobileClean) {
+      newErrors.mobile = "Mobile number is required";
+    } else if (!/^[0-9]{10}$/.test(mobileClean)) {
+      newErrors.mobile = "Enter a valid 10-digit mobile number";
+    }
+
+    if (!formData.designation.trim()) {
+      newErrors.designation = "Designation is required";
+    }
+
+    if (!formData.qualification.trim()) {
+      newErrors.qualification = "Qualification is required";
+    }
+
+    if (
+      formData.designation === "Other" &&
+      !formData.customDesignation.trim()
+    ) {
+      newErrors.customDesignation = "Please enter designation";
+    }
+
+    if (!formData.location.trim()) {
+      newErrors.location = "Location is required";
+    }
+
+    // PDF file required
+    if (!pdfFile) newErrors.pdfFile = "Resume PDF is required";
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  /* SUBMIT HANDLER */
+  /* ------------------------------------------
+     SUBMIT
+  ------------------------------------------- */
   const handleSubmit = () => {
     if (!validate()) return;
 
     const fd = new FormData();
-    Object.entries(formData).forEach(([key, value]) =>
+
+    // use customDesignation when 'Other' selected
+    const finalDesignation = formData.designation.trim();
+
+    const payload = {
+      ...formData,
+      designation: finalDesignation,
+    };
+
+    Object.entries(payload).forEach(([key, value]) =>
       fd.append(key, value || "")
     );
-
+    fd.append("designation", finalDesignation);
     fd.append("topSkills", JSON.stringify(topSkills));
     fd.append("skillsAll", JSON.stringify(skillsAll));
     fd.append("companyNamesAll", JSON.stringify(companiesAll));
     fd.append("education", JSON.stringify(education));
+    fd.append("qualification", formData.qualification);
 
-    // PDF FILE IS SENT HERE (CORRECT)
     if (pdfFile) fd.append("pdfFile", pdfFile);
 
     dispatch(addCandidateManual(fd));
   };
 
-  /* SUCCESS & ERROR HANDLING */
+  /* ------------------------------------------
+     SUCCESS / ERROR HANDLING
+  ------------------------------------------- */
   useEffect(() => {
     if (manualAddSuccess) {
       toast.success("Candidate added successfully");
 
+      // Reset form
       setFormData({
         name: "",
         email: "",
@@ -211,6 +219,7 @@ export default function AddCandidateManually() {
         experience: "",
         relevantExp: "",
         designation: "",
+        customDesignation: "",
         recentCompany: "",
         applyDate: "",
         callingDate: "",
@@ -226,17 +235,14 @@ export default function AddCandidateManually() {
       setCompaniesAll([]);
       setEducation([{ degree: "", institute: "", passingYear: "", score: "" }]);
       setPdfFile(null);
+      setErrors({});
 
       dispatch(resetManualAddState());
     }
 
     if (manualAddError) toast.error(manualAddError);
-  }, [manualAddSuccess, manualAddError]);
+  }, [manualAddSuccess, manualAddError, dispatch]);
 
-  console.log("PDF FILE SENDING:", pdfFile);
-
-
-  /* UI */
   if (!isAdmin)
     return (
       <div className="p-8 text-center text-red-600 text-xl">
@@ -244,6 +250,55 @@ export default function AddCandidateManually() {
       </div>
     );
 
+  /* ------------------------------------------
+     Helpers for mobile input (only digits allowed)
+  ------------------------------------------- */
+  const handleMobileKeyDown = (e) => {
+    // Allow control keys: backspace, delete, arrows, tab
+    const allowedKeys = [
+      "Backspace",
+      "Delete",
+      "ArrowLeft",
+      "ArrowRight",
+      "Tab",
+    ];
+    if (allowedKeys.includes(e.key)) return;
+
+    // Only digits allowed
+    if (!/^\d$/.test(e.key)) {
+      e.preventDefault();
+    }
+  };
+
+  const handleMobilePaste = (e) => {
+    const paste = (e.clipboardData || window.clipboardData).getData("text");
+    if (!/^\d+$/.test(paste)) {
+      e.preventDefault();
+      return;
+    }
+    // if too long, trim after paste
+    const current = (formData.mobile || "").toString();
+    const combined = (current + paste).slice(0, 10);
+    setFormData((prev) => ({ ...prev, mobile: combined }));
+    e.preventDefault();
+  };
+
+  /* ------------------------------------------
+     File input handler
+  ------------------------------------------- */
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0] || null;
+    if (file && file.type !== "application/pdf") {
+      toast.error("Only PDF files are allowed");
+      return;
+    }
+    setPdfFile(file);
+    setErrors((prev) => ({ ...prev, pdfFile: undefined }));
+  };
+
+  /* ------------------------------------------
+     UI
+  ------------------------------------------- */
   return (
     <div className="w-full min-h-screen bg-white px-8 pb-20">
       <h1 className="text-4xl font-bold font-serif mt-6 mb-1">
@@ -257,48 +312,85 @@ export default function AddCandidateManually() {
         {/* BASIC GRID */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <Input
-            label="Full Name *"
+            label="Full Name"
+            required
             error={errors.name}
             value={formData.name}
             onChange={(v) => setFormData({ ...formData, name: v })}
           />
+
           <Input
             label="Email"
+            required
+            error={errors.email}
             value={formData.email}
             onChange={(v) => setFormData({ ...formData, email: v })}
           />
+
           <Input
-            label="Mobile *"
+            label="Mobile"
+            required
             error={errors.mobile}
             value={formData.mobile}
-            onChange={(v) => setFormData({ ...formData, mobile: v })}
+            onChange={(v) =>
+              // keep only digits and limit to 10 on manual input change
+              setFormData((prev) => ({
+                ...prev,
+                mobile: v.replace(/\D/g, "").slice(0, 10),
+              }))
+            }
+            onKeyDown={handleMobileKeyDown}
+            onPaste={handleMobilePaste}
           />
 
           <Dropdown
             label="Gender"
-            value={formData.gender}
             options={GENDER_OPTIONS}
+            value={formData.gender}
             onChange={(v) => setFormData({ ...formData, gender: v })}
           />
 
-          <Dropdown
+          <CreatableDropdown
             label="Highest Qualification"
-            value={formData.qualification}
+            required
             options={DEGREE_OPTIONS}
-            onChange={(v) => setFormData({ ...formData, qualification: v })}
+            value={formData.qualification}
+            error={errors.qualification}
+            onChange={(v) =>
+              setFormData((prev) => ({
+                ...prev,
+                qualification: v,
+              }))
+            }
           />
 
-          <Dropdown
+          {/* DESIGNATION: Option B -> dropdown with "Other" handling */}
+          <CreatableDropdown
             label="Designation"
-            value={formData.designation}
+            required
             options={DESIGNATION_OPTIONS}
-            onChange={(v) => setFormData({ ...formData, designation: v })}
+            value={formData.designation}
+            error={errors.designation}
+            onChange={(v) =>
+              setFormData((prev) => ({
+                ...prev,
+                designation: v,
+              }))
+            }
           />
 
-          <Input
+          <CreatableDropdown
             label="Location"
+            required
+            options={LOCATION_OPTIONS} // USE THE IMPORTED DATA
             value={formData.location}
-            onChange={(v) => setFormData({ ...formData, location: v })}
+            error={errors.location}
+            onChange={(v) =>
+              setFormData((prev) => ({
+                ...prev,
+                location: v,
+              }))
+            }
           />
 
           <Input
@@ -359,35 +451,47 @@ export default function AddCandidateManually() {
             onChange={(v) => setFormData({ ...formData, expCTC: v })}
           />
 
-          {/* PDF UPLOAD (CORRECT) */}
+          {/* PDF UPLOAD (with icon) */}
           <div>
             <label className="text-sm mb-1 block font-medium">
-              Upload PDF Resume
+              Upload PDF Resume <span className="text-red-600">*</span>
             </label>
 
-            {/* If NO file selected → Show normal file input */}
-            {!pdfFile && (
-              <input
-                type="file"
-                accept="application/pdf"
-                onChange={(e) => setPdfFile(e.target.files[0])}
-                className="w-full border text-[#808080] border-gray-200 rounded-md px-3 h-10 bg-[#FCFBF8]"
-              />
+            {!pdfFile ? (
+              <label
+                htmlFor="pdf-upload"
+                className={`w-full flex items-center gap-3 border rounded-md px-3 h-10 bg-[#FCFBF8] cursor-pointer ${
+                  errors.pdfFile ? "border-red-500" : "border-gray-200"
+                }`}
+              >
+                <FiUploadCloud className="text-2xl text-gray-500" />
+                <span className="text-[#808080]">Attach PDF resume</span>
+                <input
+                  id="pdf-upload"
+                  type="file"
+                  accept="application/pdf"
+                  onChange={handleFileChange}
+                  className="hidden"
+                  required
+                />
+              </label>
+            ) : (
+              <div className="flex items-center justify-between border rounded-md px-3 h-10 bg-[#FCFBF8]">
+                <span className="text-[#808080] truncate">{pdfFile.name}</span>
+                <div className="flex items-center gap-3">
+                  <button
+                    className="text-red-600"
+                    onClick={() => setPdfFile(null)}
+                    type="button"
+                  >
+                    <FiX size={18} />
+                  </button>
+                </div>
+              </div>
             )}
 
-            {/* If file selected → show file name + remove button */}
-            {pdfFile && (
-              <div className="flex items-center justify-between border border-gray-200 rounded-md px-3 h-10 bg-[#FCFBF8]">
-                <span className="text-[#808080] truncate">{pdfFile.name}</span>
-
-                {/* Remove Button */}
-                <button
-                  className="text-red-600 ml-3"
-                  onClick={() => setPdfFile(null)}
-                >
-                  <FiX size={18} />
-                </button>
-              </div>
+            {errors.pdfFile && (
+              <p className="text-red-600 text-xs mt-1">{errors.pdfFile}</p>
             )}
           </div>
         </div>
@@ -428,6 +532,7 @@ export default function AddCandidateManually() {
               <button
                 onClick={() => removeEducation(idx)}
                 className="absolute top-3 right-3 text-red-500"
+                type="button"
               >
                 <FiTrash2 />
               </button>
@@ -437,6 +542,7 @@ export default function AddCandidateManually() {
 
         <button
           onClick={addEducation}
+          type="button"
           className="text-blue-700 font-medium flex items-center gap-2 text-sm mb-6"
         >
           <FiPlus /> Add More Education
@@ -468,6 +574,7 @@ export default function AddCandidateManually() {
           />
           <TextArea
             label="Remark"
+            required
             value={formData.remark}
             onChange={(v) => setFormData({ ...formData, remark: v })}
           />
@@ -484,7 +591,7 @@ export default function AddCandidateManually() {
           disabled={manualAddLoading}
           onClick={handleSubmit}
           className={`mt-10 px-6 py-2 bg-[#A1DB40] rounded-md ${
-            manualAddLoading ? "opacity-60" : ""
+            manualAddLoading ? "opacity-60 cursor-not-allowed" : ""
           }`}
         >
           {manualAddLoading ? "Saving..." : "Add Candidate"}
@@ -498,46 +605,71 @@ export default function AddCandidateManually() {
    REUSABLE UI COMPONENTS
 ------------------------------------------- */
 
-function Input({ label, value, onChange, error, type = "text" }) {
+function Input({
+  label,
+  value,
+  onChange,
+  error,
+  type = "text",
+  required = false,
+  onKeyDown,
+  onPaste,
+}) {
   return (
     <div>
-      <label className="text-sm mb-1 block font-medium ">{label}</label>
+      <label className="text-sm mb-1 block font-medium">
+        {label} {required && <span className="text-red-600">*</span>}
+      </label>
+
       <input
         type={type}
-        className="w-full border text-[#808080] border-gray-200 rounded-md px-3 h-10 bg-[#FCFBF8]"
+        className={`w-full border rounded-md px-3 h-10 bg-[#FCFBF8] text-[#808080]
+          ${error ? "border-red-500" : "border-gray-200"}`}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onKeyDown={onKeyDown}
+        onPaste={onPaste}
       />
-      {error && <p className="text-red-600 text-xs">{error}</p>}
+      {error && <p className="text-red-600 text-xs mt-1">{error}</p>}
     </div>
   );
 }
 
-function Dropdown({ label, options, value, onChange }) {
+function Dropdown({
+  label,
+  options,
+  value,
+  onChange,
+  required = false,
+  error,
+}) {
   return (
-    <div className="relative">
-      <label className="text-sm font-medium mb-1 block">{label}</label>
+    <div>
+      <label className="text-sm font-medium mb-1 block">
+        {label} {required && <span className="text-red-600">*</span>}
+      </label>
 
       <div className="relative">
         <select
-          className="
-            w-full border border-gray-200 rounded-md px-3 pr-10 h-10 
-            bg-[#FCFBF8] text-[#808080]
-            appearance-none
-          "
+          className={`w-full border rounded-md px-3 pr-10 h-10 bg-[#FCFBF8] text-[#808080] appearance-none
+            ${error ? "border-red-500" : "border-gray-200"}`}
           value={value}
           onChange={(e) => onChange(e.target.value)}
         >
           <option value="">Select</option>
           {options.map((o) => (
-            <option key={o}>{o}</option>
+            <option key={o} value={o}>
+              {o}
+            </option>
           ))}
         </select>
 
-        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">
+        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">
           <FaChevronDown />
         </span>
       </div>
+
+      {error && <p className="text-red-600 text-xs mt-1">{error}</p>}
     </div>
   );
 }
@@ -545,7 +677,7 @@ function Dropdown({ label, options, value, onChange }) {
 function TextArea({ label, value, onChange }) {
   return (
     <div className="mt-6">
-      <label className="text-sm mb-1 block font-medium ">{label}</label>
+      <label className="text-sm mb-1 block font-medium">{label}</label>
       <textarea
         rows={4}
         className="w-full border text-[#808080] border-gray-200 rounded-md px-3 py-2 bg-[#FCFBF8]"
@@ -559,7 +691,7 @@ function TextArea({ label, value, onChange }) {
 function TagInput({ label, items, setItems }) {
   return (
     <div className="mt-6">
-      <label className="text-sm block mb-2 font-medium ">{label}</label>
+      <label className="text-sm block mb-2 font-medium">{label}</label>
 
       <input
         className="w-full border text-[#808080] border-gray-200 rounded-md px-3 h-10 bg-[#FCFBF8]"
@@ -589,6 +721,90 @@ function TagInput({ label, items, setItems }) {
           </span>
         ))}
       </div>
+    </div>
+  );
+}
+
+function CreatableDropdown({
+  label,
+  options,
+  value,
+  onChange,
+  required,
+  error,
+}) {
+  const [inputValue, setInputValue] = useState(value || "");
+  const [open, setOpen] = useState(false);
+
+  const filtered = options.filter((opt) =>
+    opt.toLowerCase().includes(inputValue.toLowerCase())
+  );
+
+  const selectValue = (val) => {
+    setInputValue(val);
+    onChange(val);
+    setOpen(false);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (inputValue.trim() !== "") {
+        selectValue(inputValue.trim());
+      }
+    }
+  };
+
+  return (
+    <div className="mb-4 relative">
+      <label className="text-sm font-medium mb-1 block">
+        {label} {required && <span className="text-red-600">*</span>}
+      </label>
+
+      <input
+        type="text"
+        value={inputValue}
+        placeholder="Select or type"
+        className={`w-full border rounded-md px-3 h-10 bg-[#FCFBF8] text-[#808080]
+          ${error ? "border-red-500" : "border-gray-200"}`}
+        onFocus={() => setOpen(true)}
+        onChange={(e) => {
+          setInputValue(e.target.value);
+          setOpen(true);
+        }}
+        onKeyDown={handleKeyDown}
+      />
+
+      {/* dropdown */}
+      {open && (
+        <div className="absolute z-20 w-full bg-white border border-gray-300 rounded-md mt-1 max-h-40 overflow-y-auto shadow-sm">
+          {filtered.length === 0 ? (
+            <div
+              className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
+              onMouseDown={() => selectValue(inputValue)}
+            >
+              Create "{inputValue}"
+            </div>
+          ) : (
+            filtered.map((item) => (
+              <div
+                key={item}
+                className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
+                onMouseDown={() => selectValue(item)}
+              >
+                {item}
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* click outside to close */}
+      {open && (
+        <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+      )}
+
+      {error && <p className="text-red-600 text-xs mt-1">{error}</p>}
     </div>
   );
 }

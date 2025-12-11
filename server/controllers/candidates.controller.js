@@ -1,20 +1,25 @@
 import Candidate from "../models/candidate.model.js";
 import ActivityLog from "../models/activityLog.model.js";
 import { upsertCandidate } from "../services/candidate.service.js";
-import { searchCandidatesES } from "../services/elasticsearch.service.js";
+import {
+  searchCandidatesES,
+  buildHybridSearchQuery,
+  ES_INDEX,
+  indexCandidate,
+} from "../services/elasticsearch.service.js";
+import client from "../services/elasticsearch.service.js";
 import logger from "../config/logger.js";
 import {
   canDownloadResume,
   logDownload,
 } from "../services/download.service.js";
-import { indexCandidate } from "../services/elasticsearch.service.js";
 
 /* -------------------------------------------------------
    ADD / UPDATE CANDIDATE (MANUAL ENTRY)
 ------------------------------------------------------- */
 export const addOrUpdateCandidate = async (req, res, next) => {
   try {
-    const required = ["unique_id", "fullName", "resumeUrl"];
+    const required = ["unique_id", "name", "resumeUrl"];
     for (const f of required) {
       if (!req.body[f]) {
         return res.status(400).json({ error: `${f} is required` });
@@ -57,104 +62,186 @@ export const getCandidate = async (req, res, next) => {
 };
 
 /* -------------------------------------------------------
-   SEARCH CANDIDATES (ES)
+   SEARCH CANDIDATES (FULL HYBRID SEARCH + FILTERS)
 ------------------------------------------------------- */
 export const searchCandidates = async (req, res, next) => {
   try {
-    const q = req.query.q || "";
-    const page = Math.max(1, parseInt(req.query.page || "1"));
-    const size = Math.min(100, parseInt(req.query.size || "20"));
+    const q = req.query.q?.trim() || null;
+    const location = req.query.location?.trim()?.toLowerCase() || null;
+    const designation = req.query.designation?.trim() || null;
+
+    /* FIX — read both skills and skills[] */
+    let rawSkills = req.query.skills || req.query["skills[]"] || [];
+
+    const skills = Array.isArray(rawSkills) ? rawSkills : [rawSkills];
+
+    const minExp = req.query.minExp ? Number(req.query.minExp) : null;
+    const maxExp = req.query.maxExp ? Number(req.query.maxExp) : null;
+
+    const page = Number(req.query.page || 1);
+    const size = Number(req.query.size || 20);
     const from = (page - 1) * size;
 
-    const esQuery = {
-      from,
-      size,
-      query: {
+    // Block empty search
+    if (
+      !q &&
+      !location &&
+      !designation &&
+      skills.length === 0 &&
+      minExp === null &&
+      maxExp === null
+    ) {
+      return res.json({ total: 0, page, size, results: [] });
+    }
+
+    // Base query
+    let esQuery = q
+      ? buildHybridSearchQuery(q)
+      : { query: { bool: { must: [], filter: [] } } };
+
+    if (!esQuery.query.bool.must) esQuery.query.bool.must = [];
+    if (!esQuery.query.bool.filter) esQuery.query.bool.filter = [];
+
+    /* ---------------------------------------------
+       LOCATION FILTER (STRONG + CASE-SAFE)
+    --------------------------------------------- */
+    if (location) {
+      esQuery.query.bool.filter.push({
         bool: {
-          must: q
-            ? [
+          should: [
+            // exact match
+            { term: { "location.keyword": location } },
+
+            // phrase match (Panipat)
+            {
+              match_phrase: {
+                location: {
+                  query: location,
+                  slop: 0,
+                },
+              },
+            },
+
+            // matches "... Panipat"
+            {
+              wildcard: {
+                location: `* ${location}`,
+              },
+            },
+
+            // matches "Panipat ..."
+            {
+              wildcard: {
+                location: `${location} *`,
+              },
+            },
+
+            // matches anywhere (Panipat inside long address)
+            {
+              wildcard: {
+                location: `*${location}*`,
+              },
+            },
+          ],
+          minimum_should_match: 1,
+        },
+      });
+    }
+
+    /* ---------------------------------------------
+       DESIGNATION FILTER
+    --------------------------------------------- */
+    if (designation) {
+      esQuery.query.bool.filter.push({
+        match_phrase: { designation },
+      });
+    }
+
+    /* ---------------------------------------------
+   SKILLS FILTER (WORKS FOR skills[] + topSkills[])
+--------------------------------------------- */
+    if (skills.length > 0) {
+      const normalizedSkills = skills.map((s) => s.trim().toLowerCase());
+
+      esQuery.query.bool.filter.push({
+        bool: {
+          must: normalizedSkills.map((s) => ({
+            bool: {
+              should: [
                 {
-                  multi_match: {
-                    query: q,
-                    type: "best_fields",
-                    fields: [
-                      "fullName.ngram^4",
-                      "fullName^2",
-                      "designation^2",
-                      "topSkills",
-                      "skills",
-                      "recentCompany",
-                      "companyNamesAll",
-                      "location",
-                    ],
-                    fuzziness: "AUTO",
+                  match_phrase: {
+                    skills: {
+                      query: s,
+                    },
                   },
                 },
-              ]
-            : [{ match_all: {} }],
-          filter: [],
+                {
+                  match_phrase: {
+                    topSkills: {
+                      query: s,
+                    },
+                  },
+                },
+              ],
+              minimum_should_match: 1,
+            },
+          })),
         },
-      },
-    };
-
-    if (req.query.location) {
-      esQuery.query.bool.filter.push({
-        term: { location: req.query.location },
       });
     }
 
-    if (req.query.minExp) {
+    /* ---------------------------------------------
+       EXPERIENCE RANGE FILTER (CORRECT)
+    --------------------------------------------- */
+
+    if (minExp !== null && maxExp !== null) {
       esQuery.query.bool.filter.push({
-        range: { experience: { gte: Number(req.query.minExp) } },
+        range: {
+          experience: { gte: minExp, lte: maxExp },
+        },
+      });
+    } else if (minExp !== null) {
+      esQuery.query.bool.filter.push({
+        range: {
+          experience: { gte: minExp },
+        },
+      });
+    } else if (maxExp !== null) {
+      esQuery.query.bool.filter.push({
+        bool: {
+          should: [
+            { range: { experience: { lte: maxExp } } },
+
+            // include 0-experience people (experience null)
+            { bool: { must_not: { exists: { field: "experience" } } } },
+          ],
+          minimum_should_match: 1,
+        },
       });
     }
 
-    if (req.query.maxExp) {
-      esQuery.query.bool.filter.push({
-        range: { experience: { lte: Number(req.query.maxExp) } },
-      });
-    }
-
-    if (req.query.designation) {
-      esQuery.query.bool.filter.push({
-        match: { designation: req.query.designation },
-      });
-    }
-
-    if (req.query.skills) {
-      const skillsArr = Array.isArray(req.query.skills)
-        ? req.query.skills
-        : req.query.skills.split(",").map((s) => s.trim());
-
-      esQuery.query.bool.filter.push({
-        terms: { skills: skillsArr },
-      });
-    }
-
-    // Perform ES search
-    const esResult = await searchCandidatesES(esQuery);
-
-    const total = esResult.total?.value || esResult.total || 0;
-    const hits = Array.isArray(esResult.hits)
-      ? esResult.hits
-      : esResult.hits?.hits || [];
-
-    const results = hits.map((hit) => ({
-      id: hit._id,
-      score: hit._score,
-      source: hit._source,
-    }));
-
-    // Log search
-    await ActivityLog.create({
-      userId: req.user._id,
-      type: "search_candidates",
-      payload: { query: req.query },
+    /* ---------------------------------------------
+       EXECUTE SEARCH
+    --------------------------------------------- */
+    const response = await client.search({
+      index: ES_INDEX,
+      from,
+      size,
+      body: esQuery,
     });
 
-    res.json({ total, results });
+    return res.json({
+      total: response.hits.total.value,
+      page,
+      size,
+      results: response.hits.hits.map((h) => ({
+        id: h._id,
+        score: h._score,
+        source: h._source,
+      })),
+    });
   } catch (err) {
-    logger.error("searchCandidates error:", err);
+    console.error("Search Error:", err.meta?.body?.error || err);
     next(err);
   }
 };
@@ -162,20 +249,32 @@ export const searchCandidates = async (req, res, next) => {
 /* -------------------------------------------------------
    UPDATE FEEDBACK
 ------------------------------------------------------- */
+/* -------------------------------------------------------
+   UPDATE FEEDBACK + ADD REMARK ENTRY
+------------------------------------------------------- */
 export const updateFeedback = async (req, res, next) => {
   try {
     const id = req.params.id;
     const { feedback, remark } = req.body;
 
-    const updated = await Candidate.findByIdAndUpdate(
-      id,
-      { $set: { feedback, remark, updatedAt: new Date() } },
-      { new: true }
-    );
+    // If remark is provided, push it into the remarks[] array
+    let updateQuery = { $set: { updatedAt: new Date() } };
+
+    if (feedback !== undefined) {
+      updateQuery.$set.feedback = feedback;
+    }
+
+    if (remark) {
+      updateQuery.$push = { remarks: remark };
+    }
+
+    const updated = await Candidate.findByIdAndUpdate(id, updateQuery, {
+      new: true,
+    });
 
     if (!updated) return res.status(404).json({ error: "Candidate not found" });
 
-    res.json({ success: true, candidate: updated });
+    return res.json({ success: true, candidate: updated });
   } catch (err) {
     logger.error("updateFeedback error:", err);
     next(err);
@@ -194,7 +293,6 @@ export const viewResume = async (req, res, next) => {
     if (!c || !resumeUrl)
       return res.status(404).json({ error: "Resume not found" });
 
-    // Only recruiters have limits
     if (req.user.role === "RECRUITER") {
       const allowed = await canDownloadResume(req.user._id);
 
