@@ -120,8 +120,8 @@ export default function CandidateSearch() {
     const params = prefillParams || {
       q: filters.searchText || undefined,
       location: filters.location || undefined,
-      minExp: filters.minExp || undefined,
-      maxExp: filters.maxExp || undefined,
+      minExp: filters.minExp !== "" ? filters.minExp : undefined,
+      maxExp: filters.maxExp !== "" ? filters.maxExp : undefined,
       designation: filters.designation || undefined,
       skills: filters.skills.length > 0 ? filters.skills : undefined,
       page: newPage,
