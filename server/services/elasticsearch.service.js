@@ -177,6 +177,7 @@ export const indexCandidate = async (candidate) => {
    HYBRID SEARCH QUERY (Exact + Phrase + Match + Ngram + Fuzzy)
 --------------------------------------------------------- */
 export const buildHybridSearchQuery = (q, filters = {}) => {
+  const { minExp = null, maxExp = null } = filters;
   let must = [];
   let should = [];
   let filter = [];
@@ -284,25 +285,20 @@ export const buildHybridSearchQuery = (q, filters = {}) => {
      EXPERIENCE FILTER
   --------------------------------------------------------- */
   /* EXPERIENCE FILTER */
-  if (minExp !== null && maxExp !== null) {
-    esQuery.query.bool.filter.push({
-      range: {
-        experience: { gte: minExp, lte: maxExp },
-      },
-    });
-  } else if (minExp !== null) {
-    esQuery.query.bool.filter.push({
-      range: {
-        experience: { gte: minExp },
-      },
-    });
-  } else if (maxExp !== null) {
-    esQuery.query.bool.filter.push({
-      range: {
-        experience: { lte: maxExp },
-      },
-    });
-  }
+
+if (minExp !== null && maxExp !== null) {
+  filter.push({
+    range: { experience: { gte: minExp, lte: maxExp } },
+  });
+} else if (minExp !== null) {
+  filter.push({
+    range: { experience: { gte: minExp } },
+  });
+} else if (maxExp !== null) {
+  filter.push({
+    range: { experience: { lte: maxExp } },
+  });
+}
 
   /* ---------------------------------------------------------
      DESIGNATION FILTER
