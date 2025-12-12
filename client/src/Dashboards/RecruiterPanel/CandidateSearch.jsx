@@ -192,7 +192,7 @@ export default function CandidateSearch() {
         <div className="flex-1 bg-stone-50 outline outline-zinc-200 rounded-xl px-5 flex items-center gap-4">
           <input
             className="flex-1 text-sm bg-transparent outline-none text-zinc-500"
-            placeholder="Search by name / designation / skills / company"
+            placeholder="Search by name / company"
             value={filters.searchText}
             onChange={(e) => handleChange("searchText", e.target.value)}
           />
