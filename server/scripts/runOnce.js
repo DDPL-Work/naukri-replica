@@ -15,7 +15,7 @@ const runOnce = async () => {
 
   await bulkIndex();
 
-  fs.writeFileSync(flagPath, "done");
+  // fs.writeFileSync(flagPath, "done");
 
   console.log("✅ Bulk index complete + flag saved.");
 };
