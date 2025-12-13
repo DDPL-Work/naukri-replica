@@ -13,6 +13,7 @@ import {
   canDownloadResume,
   logDownload,
 } from "../services/download.service.js";
+import { logAction } from "../middlewares/logRecruiterMiddleware.js";
 
 /* -------------------------------------------------------
    ADD / UPDATE CANDIDATE (MANUAL ENTRY)
@@ -53,6 +54,9 @@ export const getCandidate = async (req, res, next) => {
     const c = await Candidate.findById(id);
 
     if (!c) return res.status(404).json({ error: "Not found" });
+
+    // LOG ONLY AFTER SUCCESS
+    await logAction("view_candidate")(req, res, () => {});
 
     res.json(c);
   } catch (err) {
