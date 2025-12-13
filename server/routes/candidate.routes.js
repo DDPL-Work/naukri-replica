@@ -28,7 +28,7 @@ router.get(
 router.get(
   "/:id",
   authMiddleware(["RECRUITER", "ADMIN"]),
-  logAction("view_candidate"),
+  // logAction("view_candidate"),
   getCandidate
 );
 

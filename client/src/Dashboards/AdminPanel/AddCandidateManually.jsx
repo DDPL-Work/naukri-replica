@@ -373,12 +373,14 @@ export default function AddCandidateManually() {
             options={DEGREE_OPTIONS}
             value={formData.qualification}
             error={errors.qualification}
-            onChange={(v) =>
+            createLabel="Create new qual name"
+             onChange={(v) => {
               setFormData((prev) => ({
                 ...prev,
                 qualification: v,
-              }))
-            }
+              }));
+              setErrors((prev) => ({ ...prev, qualification: undefined }));
+            }}
           />
 
           {/* DESIGNATION: Option B -> dropdown with "Other" handling */}
@@ -388,12 +390,14 @@ export default function AddCandidateManually() {
             options={DESIGNATION_OPTIONS}
             value={formData.designation}
             error={errors.designation}
-            onChange={(v) =>
+            createLabel="Create new designation"
+            onChange={(v) => {
               setFormData((prev) => ({
                 ...prev,
                 designation: v,
-              }))
-            }
+              }));
+              setErrors((prev) => ({ ...prev, designation: undefined }));
+            }}
           />
 
           <CreatableDropdown
@@ -402,12 +406,14 @@ export default function AddCandidateManually() {
             options={LOCATION_OPTIONS} // USE THE IMPORTED DATA
             value={formData.location}
             error={errors.location}
-            onChange={(v) =>
+            createLabel="Add new loc name"
+            onChange={(v) => {
               setFormData((prev) => ({
                 ...prev,
                 location: v,
-              }))
-            }
+              }));
+              setErrors((prev) => ({ ...prev, location: undefined }));
+            }}
           />
 
           <Input
@@ -522,12 +528,19 @@ export default function AddCandidateManually() {
             className="border border-gray-200 rounded-md p-4 mb-4 relative"
           >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Dropdown
+              <CreatableDropdown
                 label="Degree"
+                required
                 options={DEGREE_OPTIONS}
-                value={item.degree}
-                onChange={(v) => updateEducation(idx, "degree", v)}
+                value={item.degree} // ✅ correct source
+                error={errors.degree}
+                createLabel="Create new degree name"
+                onChange={(v) => {
+                  updateEducation(idx, "degree", v); // ✅ correct update
+                  setErrors((prev) => ({ ...prev, degree: undefined }));
+                }}
               />
+
               <Input
                 label="Institute"
                 value={item.institute}
@@ -744,14 +757,20 @@ function TagInput({ label, items, setItems }) {
 
 function CreatableDropdown({
   label,
-  options,
+  options = [],
   value,
   onChange,
-  required,
+  required = false,
   error,
+  placeholder = "Select or type",
+  createLabel,
 }) {
   const [inputValue, setInputValue] = useState(value || "");
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    setInputValue(value || "");
+  }, [value]);
 
   const filtered = options.filter((opt) =>
     opt.toLowerCase().includes(inputValue.toLowerCase())
@@ -766,24 +785,24 @@ function CreatableDropdown({
   const handleKeyDown = (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      if (inputValue.trim() !== "") {
+      if (inputValue.trim()) {
         selectValue(inputValue.trim());
       }
     }
   };
 
   return (
-    <div className="mb-4 relative">
+    <div className="relative">
       <label className="text-sm font-medium mb-1 block">
         {label} {required && <span className="text-red-600">*</span>}
       </label>
 
       <input
         type="text"
-        value={inputValue}
-        placeholder="Select or type"
         className={`w-full border rounded-md px-3 h-10 bg-[#FCFBF8] text-[#808080]
           ${error ? "border-red-500" : "border-gray-200"}`}
+        placeholder={placeholder}
+        value={inputValue}
         onFocus={() => setOpen(true)}
         onChange={(e) => {
           setInputValue(e.target.value);
@@ -792,31 +811,29 @@ function CreatableDropdown({
         onKeyDown={handleKeyDown}
       />
 
-      {/* dropdown */}
       {open && (
         <div className="absolute z-20 w-full bg-white border border-gray-300 rounded-md mt-1 max-h-40 overflow-y-auto shadow-sm">
-          {filtered.length === 0 ? (
-            <div
-              className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
-              onMouseDown={() => selectValue(inputValue)}
-            >
-              Create "{inputValue}"
-            </div>
-          ) : (
-            filtered.map((item) => (
+          {filtered.length > 0 ? (
+            filtered.map((opt) => (
               <div
-                key={item}
+                key={opt}
                 className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
-                onMouseDown={() => selectValue(item)}
+                onMouseDown={() => selectValue(opt)}
               >
-                {item}
+                {opt}
               </div>
             ))
+          ) : (
+            <div
+              className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm text-gray-600"
+              onMouseDown={() => selectValue(inputValue)}
+            >
+              {createLabel} “{inputValue}”
+            </div>
           )}
         </div>
       )}
 
-      {/* click outside to close */}
       {open && (
         <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
       )}

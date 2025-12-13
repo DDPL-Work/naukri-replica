@@ -17,6 +17,74 @@ const GRID_CLASS = {
   4: "grid-cols-4",
 };
 
+// Normalize string for comparison
+const normalizeKey = (v) => (v || "Unknown").toString().trim().toLowerCase();
+
+// Convert to display format
+const toTitleCase = (v) =>
+  v.replace(/\w\S*/g, (t) => t[0].toUpperCase() + t.slice(1).toLowerCase());
+
+// Merge analytics counts ignoring case
+const mergeCaseInsensitiveCounts = (data = []) => {
+  const map = new Map();
+
+  data.forEach(({ _id, count }) => {
+    const key = normalizeKey(_id);
+
+    if (!map.has(key)) {
+      map.set(key, {
+        label: toTitleCase(_id || "Unknown"),
+        count: count || 0,
+      });
+    } else {
+      map.get(key).count += count || 0;
+    }
+  });
+
+  return Array.from(map.values()).sort((a, b) => b.count - a.count);
+};
+
+const normalizeLocationKey = (value) => {
+  if (!value) return "unknown";
+
+  // Split by comma → trim → remove empty
+  const parts = value
+    .toString()
+    .split(",")
+    .map((p) => p.trim())
+    .filter(Boolean);
+
+  // RULE: use the FIRST city as canonical
+  // "Panipat, Panipat" → Panipat
+  // "Samalkha, Panipat" → Samalkha
+  // "Sonipat, Haryana" → Sonipat
+  const primary = parts[0];
+
+  return primary.toLowerCase();
+};
+
+const formatLocationLabel = (value) =>
+  value.replace(/\w\S*/g, (t) => t[0].toUpperCase() + t.slice(1).toLowerCase());
+
+const mergeLocationCounts = (data = []) => {
+  const map = new Map();
+
+  data.forEach(({ _id, count }) => {
+    const key = normalizeLocationKey(_id);
+
+    if (!map.has(key)) {
+      map.set(key, {
+        label: formatLocationLabel(key),
+        count: count || 0,
+      });
+    } else {
+      map.get(key).count += count || 0;
+    }
+  });
+
+  return Array.from(map.values()).sort((a, b) => b.count - a.count);
+};
+
 const MetricCard = ({ title, value, subtitle, icon: Icon }) => (
   <div className="w-80 p-6 bg-blue-900/5 border border-blue-900/30 rounded-lg">
     <div className="flex justify-between">
@@ -208,8 +276,16 @@ export default function Analytics() {
     v === undefined || v === null || v === "" ? "Unknown" : v;
 
   // Convert data into table rows
-  const locationRows = locationCounts.map((l) => [l._id, l.count]);
-  const skillRows = skillCounts.map((s) => [s._id, s.count]);
+  const locationRows = mergeLocationCounts(locationCounts).map((l) => [
+    l.label,
+    l.count,
+  ]);
+
+  const skillRows = mergeCaseInsensitiveCounts(skillCounts).map((s) => [
+    s.label,
+    s.count,
+  ]);
+
   const designationRows = designationCounts.map((d) => [d._id, d.count]);
   const companyRows = companyCounts.map((c) => [c._id, c.count]);
   const portalRows = portalCounts.map((p) => [p._id, p.count]);

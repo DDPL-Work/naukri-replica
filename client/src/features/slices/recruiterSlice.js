@@ -96,7 +96,7 @@ export const getCandidateById = createAsyncThunk(
   "recruiter/getCandidateById",
   async (id, { rejectWithValue }) => {
     try {
-      const res = await API.get(`/candidates/${id}?noLog=true`);
+      const res = await API.get(`/candidates/${id}`);
       return res.data;
     } catch (err) {
       return rejectWithValue(
