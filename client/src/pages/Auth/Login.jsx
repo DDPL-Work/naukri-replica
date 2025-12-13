@@ -2,11 +2,12 @@ import React, { useState } from "react";
 import { FiUser, FiEye, FiEyeOff } from "react-icons/fi";
 import { FcGoogle } from "react-icons/fc";
 import { MdAdminPanelSettings } from "react-icons/md";
-import LogoImage from "../../assets/LogoImage.svg";
+import LogoImage from "../../assets/mavenLogo.svg";
 import { useDispatch, useSelector } from "react-redux";
 import { loginUser } from "../../features/slices/authSlice";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
+import LoginIllustration from "../../assets/Character.svg";
 
 const Login = () => {
   const dispatch = useDispatch();
@@ -46,61 +47,73 @@ const Login = () => {
   };
 
   return (
-    <div className="w-full mx-auto h-screen relative bg-white flex">
-      {/* LEFT PANEL (DESIGN) */}
-      <div className="hidden lg:block w-[661.6px] h-full  flex-col justify-center">
-          <img src={LogoImage} className="w-full h-screen object-cover " />
+    <div className="relative w-full h-screen bg-[#1F41A9] overflow-hidden flex">
+      {/* LEFT CONTENT */}
+      <div className="hidden lg:flex flex-col justify-center px-35 -mt-19 w-1/2 z-10">
+        <img src={LogoImage} className="w-52 mb-8" alt="Logo" />
+
+        <h1 className="text-white text-4xl font-bold font-serif leading-tight mb-6">
+          Welcome to Maven Jobs
+        </h1>
+
+        <p className="text-white/90 text-2xl font-medium font-[Calibri] mb-8 max-w-md">
+          Your trusted recruitment partner for finding the best talent across
+          industries.
+        </p>
+
+        <ul className="space-y-3 text-white text-base font-[Calibri]">
+          <li className="flex items-center gap-3">
+            <span className="w-2 h-2 bg-[#A1DB40] rounded-full"></span>
+            Access thousands of qualified candidates
+          </li>
+          <li className="flex items-center gap-3">
+            <span className="w-2 h-2 bg-[#A1DB40] rounded-full"></span>
+            Advanced search and filtering tools
+          </li>
+          <li className="flex items-center gap-3">
+            <span className="w-2 h-2 bg-[#A1DB40] rounded-full"></span>
+            Real-time analytics and insights
+          </li>
+        </ul>
       </div>
 
-      {/* RIGHT LOGIN BOX */}
-      <div className="w-full lg:w-[778.4px] mx-auto my-auto flex flex-col items-center">
-        <div className="w-full max-w-md p-8 bg-white rounded-xl shadow-sm  outline-1 outline-zinc-200/50 flex flex-col gap-4">
-          {/* Sign In Title */}
-          <h2 className="text-neutral-950 text-2xl font-bold font-serif text-center leading-8">
+      {/* RIGHT LOGIN CARD */}
+      <div className="flex w-full lg:w-1/2 items-center justify-center z-10">
+        <div className="w-full max-w-md bg-white rounded-xl p-8 shadow-sm">
+          <h2 className="text-center text-2xl font-bold font-serif text-[#0C0C0C]">
             Sign In
           </h2>
-          <p className="text-zinc-500 text-base font-normal font-[Calibri] leading-6 text-center">
+
+          <p className="text-center text-sm font-[Calibri] text-zinc-500 mt-1">
             Access your recruiter dashboard
           </p>
 
-          {/* ROLE SWITCH DESIGN */}
-          <div className="w-full h-10 p-1 bg-gray-100 rounded-[10px] flex items-center justify-between">
-            {/* Recruiter */}
+          {/* ROLE SWITCH */}
+          <div className="flex bg-gray-100 rounded-lg p-1 mt-6">
             <button
               onClick={() => setRole("RECRUITER")}
-              className={`px-14 py-1.5 rounded-lg flex items-center gap-2 cursor-pointer
-                ${
-                  role === "RECRUITER"
-                    ? "bg-stone-50 text-neutral-950"
-                    : "text-zinc-500"
-                }`}
+              className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-sm font-[Calibri]
+              ${role === "RECRUITER" ? "bg-white text-black" : "text-zinc-500"}
+            `}
             >
               <FiUser size={14} />
-              <span className="text-neutral-950 text-sm font-normal font-[Calibri] leading-5">
-                Recruiter
-              </span>
+              Recruiter
             </button>
 
-            {/* Admin */}
             <button
               onClick={() => setRole("ADMIN")}
-              className={`px-16 py-1.5 rounded-lg flex items-center cursor-pointer gap-2
-                ${
-                  role === "ADMIN"
-                    ? "bg-stone-50 text-neutral-950"
-                    : "text-zinc-500"
-                }`}
+              className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-sm font-[Calibri]
+              ${role === "ADMIN" ? "bg-white text-black" : "text-zinc-500"}
+            `}
             >
               <MdAdminPanelSettings size={14} />
-              <span className="text-zinc-500 text-sm font-normal font-[Calibri] leading-5">
-                Admin
-              </span>
+              Admin
             </button>
           </div>
 
           {/* EMAIL */}
-          <div>
-            <label className="text-neutral-950 text-sm font-normal font-[Calibri] leading-4">
+          <div className="mt-6">
+            <label className="text-sm font-[Calibri] text-[#0C0C0C]">
               Email Address
             </label>
             <input
@@ -108,13 +121,13 @@ const Login = () => {
               placeholder="Enter your email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full h-10 bg-stone-50 rounded-[10px]  outline-1 outline-gray-200 px-4 mt-1 text-zinc-500 text-sm font-[Calibri]"
+              className="mt-1 w-full h-10 rounded-lg bg-[#FCFBF8] border border-gray-200 px-4 text-sm font-[Calibri]"
             />
           </div>
 
           {/* PASSWORD */}
-          <div>
-            <label className="text-neutral-950 text-sm font-normal font-[Calibri] leading-4">
+          <div className="mt-4">
+            <label className="text-sm font-[Calibri] text-[#0C0C0C]">
               Password
             </label>
 
@@ -124,31 +137,22 @@ const Login = () => {
                 placeholder="Enter your password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full h-10 bg-stone-50 rounded-[10px]  outline-1 outline-gray-200 px-4 text-zinc-500 text-sm font-[Calibri]"
+                className="w-full h-10 rounded-lg bg-[#FCFBF8] border border-gray-200 px-4 text-sm font-[Calibri]"
               />
 
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute cursor-pointer right-3 top-1/2 -translate-y-1/2 text-zinc-500"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500"
               >
-                {showPassword ? <FiEyeOff size={18} /> : <FiEye size={18} />}
+                {showPassword ? <FiEyeOff /> : <FiEye />}
               </button>
             </div>
           </div>
 
-          {/* REMEMBER ME + FORGOT */}
-          <div className="flex justify-end items-center w-full">
-            {/* <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                className="w-3 h-3 cursor-pointer border border-zinc-500 rounded-sm"
-              />
-              <span className="text-zinc-500 text-sm font-normal font-[Calibri] leading-5">
-                Remember me
-              </span>
-            </div> */}
-            <span className="text-neutral-950 text-sm font-normal font-[Calibri] leading-5 cursor-pointer hover:text-blue-600 hover:underline">
+          {/* FORGOT */}
+          <div className="flex justify-end mt-2">
+            <span className="text-sm font-[Calibri] cursor-pointer text-[#0C0C0C] hover:underline">
               Forgot password?
             </span>
           </div>
@@ -157,46 +161,48 @@ const Login = () => {
           <button
             onClick={handleLogin}
             disabled={loading}
-            className="w-full cursor-pointer h-11 bg-blue-900 rounded-[10px] text-white text-base font-normal font-[Calibri] leading-6 flex items-center justify-center"
+            className="mt-6 w-full h-11 rounded-lg bg-[#103C7F] text-white font-[Calibri]"
           >
             {loading ? "Signing in..." : "Sign In"}
           </button>
 
-          {/* DIVIDER */}
-          {/* <div className="relative flex items-center w-full py-2">
-            <div className="border-t border-zinc-500 flex-1"></div>
-            <span className="px-2 bg-white text-zinc-500 text-xs font-normal font-[Calibri] uppercase leading-4">
-              Or continue with
-            </span>
-            <div className="border-t border-zinc-500 flex-1"></div>
-          </div> */}
-
-          {/* GOOGLE BUTTON */}
-          {/* <button className="w-full h-11 bg-stone-50 rounded-[10px]  outline-1 outline-gray-200 cursor-pointer flex items-center justify-center gap-2">
-            <FcGoogle className="text-xl" />
-            <span className="text-neutral-950 text-sm font-normal font-[Calibri] leading-5">
-              Sign in with Google
-            </span>
-          </button> */}
-
-          {/* FOOTER TEXT */}
-          {/* <div className="flex justify-center mt-2">
-            <span className="text-zinc-500 text-sm font-normal font-[Calibri] leading-5">
-              Don't have an account?
-            </span>
-            <span className="ml-1 text-neutral-950 text-sm font-normal font-[Calibri] leading-5 cursor-pointer">
-              Contact Admin
-            </span>
-          </div> */}
+          {/* FOOTER */}
+          <p className="text-center text-xs text-zinc-500 font-[Calibri] mt-6">
+            By signing in, you agree to our{" "}
+            <span className="underline cursor-pointer">Terms of Service</span>{" "}
+            and <span className="underline cursor-pointer">Privacy Policy</span>
+          </p>
         </div>
-
-        {/* TERMS */}
-        <p className="text-center text-zinc-500 text-xs font-normal font-[Calibri] leading-4 mt-4">
-          By signing in, you agree to our{" "}
-          <span className="underline cursor-pointer hover:text-blue-600">Terms of Service</span> and{" "}
-          <span className="underline cursor-pointer hover:text-blue-600">Privacy Policy</span>
-        </p>
       </div>
+
+      {/* BACKGROUND SHAPES */}
+      <div className="absolute -left-66 -top-55  w-[568px] h-[568px] bg-[#274FC7] rounded-full" />
+      <div className="absolute -left-106 -bottom-85  w-[568px] h-[568px] bg-[#274FC7] rounded-full" />
+      <svg
+        className="absolute -right-25 top-65 rotate-25 h-full"
+        width="420"
+        viewBox="0 0 420 827"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        preserveAspectRatio="none"
+      >
+        <path
+          d="
+      M420 0
+      L260 0
+      C180 140 180 300 260 413
+      C340 540 340 700 260 827
+      L420 827
+      Z
+    "
+          fill="#264ECA"
+        />
+      </svg>
+      <img
+        src={LoginIllustration}
+        alt="Recruitment Illustration"
+        className="absolute left-0 -bottom-5 w-[250px] h-auto z-20 pointer-events-none"
+      />
     </div>
   );
 };
