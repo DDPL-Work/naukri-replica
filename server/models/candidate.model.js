@@ -19,6 +19,13 @@ const candidateSchema = new mongoose.Schema(
     resumeUrl: { type: String }, // Google Drive link
     pdfFile: { type: String, required: true }, // PDF filename stored on server
 
+    resumeText: {
+      type: String,
+      select: false, // NEVER expose directly
+    },
+
+    resumeKeywords: [{ type: String }],
+
     // Portal Information
     portal: { type: String },
     portalDate: { type: Date },

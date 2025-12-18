@@ -76,7 +76,6 @@ export const searchCandidates = async (req, res, next) => {
 
     /* FIX — read both skills and skills[] */
     let rawSkills = req.query.skills || req.query["skills[]"] || [];
-
     const skills = Array.isArray(rawSkills) ? rawSkills : [rawSkills];
 
     const minExp =
@@ -88,9 +87,18 @@ export const searchCandidates = async (req, res, next) => {
     const size = Number(req.query.size || 20);
     const from = (page - 1) * size;
 
-    // Block empty search
+    // 1️⃣ READ KEYWORDS
+    let rawKeywords = req.query.keywords || req.query["keywords[]"] || [];
+    const keywords = Array.isArray(rawKeywords)
+      ? rawKeywords
+      : rawKeywords
+      ? [rawKeywords]
+      : [];
+
+    // 2️⃣ EMPTY SEARCH CHECK
     if (
       !q &&
+      keywords.length === 0 &&
       !location &&
       !designation &&
       skills.length === 0 &&
@@ -100,10 +108,17 @@ export const searchCandidates = async (req, res, next) => {
       return res.json({ total: 0, page, size, results: [] });
     }
 
-    // Base query
-    let esQuery = q
-      ? buildHybridSearchQuery(q)
-      : { query: { bool: { must: [], filter: [] } } };
+    // 3️⃣ BUILD QUERY CORRECTLY
+    let esQuery =
+      q || keywords.length > 0
+        ? buildHybridSearchQuery(q, {
+            keywords,
+            minExp,
+            maxExp,
+            designation,
+            skills,
+          })
+        : { query: { bool: { must: [], filter: [] } } };
 
     if (!esQuery.query.bool.must) esQuery.query.bool.must = [];
     if (!esQuery.query.bool.filter) esQuery.query.bool.filter = [];
@@ -299,8 +314,7 @@ export const viewResume = async (req, res, next) => {
       return res.status(404).json({ error: "Candidate not found" });
 
     const resumeUrl = candidate.pdfFile || candidate.resumeUrl;
-    if (!resumeUrl)
-      return res.status(404).json({ error: "Resume not found" });
+    if (!resumeUrl) return res.status(404).json({ error: "Resume not found" });
 
     // ✅ Preview mode → NO LIMIT CHECK, NO LOGGING
     return res.json({
@@ -311,5 +325,3 @@ export const viewResume = async (req, res, next) => {
     next(err);
   }
 };
-
-

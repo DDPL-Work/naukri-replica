@@ -76,6 +76,7 @@ export default function CandidateSearch() {
     maxExp: "",
     designation: "",
     skills: [],
+    keywords: [],
   });
 
   const [showSkillsDropdown, setShowSkillsDropdown] = useState(false);
@@ -84,6 +85,7 @@ export default function CandidateSearch() {
   const [designationQuery, setDesignationQuery] = useState("");
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
   const [locationQuery, setLocationQuery] = useState("");
+  const [keywordInput, setKeywordInput] = useState("");
 
   const filteredSkills = staticSkills.filter((skill) =>
     skill.toLowerCase().includes(skillSearch.toLowerCase())
@@ -108,6 +110,27 @@ export default function CandidateSearch() {
     }));
   };
 
+  const handleAddKeyword = (value) => {
+    const keyword = value.trim().toLowerCase();
+    if (!keyword) return;
+
+    if (!filters.keywords.includes(keyword)) {
+      setFilters((prev) => ({
+        ...prev,
+        keywords: [...prev.keywords, keyword],
+      }));
+    }
+
+    setKeywordInput("");
+  };
+
+  const handleRemoveKeyword = (keyword) => {
+    setFilters((prev) => ({
+      ...prev,
+      keywords: prev.keywords.filter((k) => k !== keyword),
+    }));
+  };
+
   const handleChange = (key, value) => {
     setFilters((prev) => ({
       ...prev,
@@ -127,7 +150,9 @@ export default function CandidateSearch() {
       filters.minExp !== "" ||
       filters.maxExp !== "" ||
       filters.designation.trim() ||
-      filters.skills.length > 0
+      filters.skills.length > 0 ||
+      filters.keywords.length > 0 ||
+      keywordInput.trim()
     );
   };
 
@@ -145,6 +170,7 @@ export default function CandidateSearch() {
       maxExp: filters.maxExp !== "" ? filters.maxExp : undefined,
       designation: filters.designation || undefined,
       skills: filters.skills.length > 0 ? filters.skills : undefined,
+       keywords: filters.keywords.length > 0 ? filters.keywords : undefined,
       page: newPage,
       size,
     };
@@ -489,6 +515,48 @@ export default function CandidateSearch() {
                           onClick={() => handleSkillToggle(skill)}
                         >
                           <LuX />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* ===== KEYWORDS ===== */}
+            <div>
+              <Label>Resume Keywords</Label>
+
+              <div className="mt-1 space-y-2">
+                <input
+                  type="text"
+                  placeholder="Type keyword and press Enter"
+                  className="w-full bg-stone-50 outline outline-zinc-200 rounded-md px-3 py-2 text-sm"
+                  value={keywordInput}
+                  onChange={(e) => setKeywordInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleAddKeyword(keywordInput);
+                    }
+                  }}
+                />
+
+                {/* Keyword Chips */}
+                {filters.keywords.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {filters.keywords.map((kw) => (
+                      <span
+                        key={kw}
+                        className="px-3 py-1 bg-purple-100 text-purple-800 text-xs rounded-full flex items-center gap-2"
+                      >
+                        {kw}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveKeyword(kw)}
+                          className="font-bold"
+                        >
+                          <LuX size={12} />
                         </button>
                       </span>
                     ))}
