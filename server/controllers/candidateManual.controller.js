@@ -3,6 +3,8 @@ import { v2 as cloudinary } from "cloudinary";
 import fs from "fs";
 import { indexCandidate } from "../services/elasticsearch.service.js";
 import ActivityLog from "../models/activityLog.model.js";
+import { extractTextFromPdfUrl } from "../utils/extractPdfText.js";
+import { extractKeywords } from "../utils/keywordExtractor.js";
 
 export const addCandidateManual = async (req, res) => {
   try {
@@ -100,6 +102,9 @@ export const addCandidateManual = async (req, res) => {
       resumeUrl: viewUrl,
       resumePublicId: uploaded.public_id,
 
+      resumeText: "",
+      resumeKeywords: [],
+
       pdfFile: uploaded.secure_url,
 
       portal: req.body.portal || null,
@@ -134,6 +139,29 @@ export const addCandidateManual = async (req, res) => {
     // SAVE → MONGO
     // ------------------------------
     const saved = await Candidate.create(data);
+
+    // ------------------------------
+    // ASYNC RESUME TEXT EXTRACTION
+    // ------------------------------
+    (async () => {
+      try {
+        const text = await extractTextFromPdfUrl(saved.pdfFile);
+        const keywords = extractKeywords(text);
+
+        await Candidate.findByIdAndUpdate(saved._id, {
+          resumeText: text,
+          resumeKeywords: keywords,
+        });
+
+        await indexCandidate({
+          ...saved.toObject(),
+          resumeText: text,
+          resumeKeywords: keywords,
+        });
+      } catch (err) {
+        console.error("Async resume extraction failed:", err.message);
+      }
+    })();
 
     await ActivityLog.create({
       userId: req.user._id,

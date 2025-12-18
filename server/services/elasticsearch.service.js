@@ -1,5 +1,6 @@
 // services/elasticsearch.service.js
-
+import dotenv from "dotenv";
+dotenv.config();
 import { Client } from "@elastic/elasticsearch";
 import logger from "../config/logger.js";
 
@@ -83,6 +84,15 @@ export const ensureIndex = async () => {
             },
           },
 
+          resumeText: {
+            type: "text",
+            analyzer: "standard",
+          },
+
+          resumeKeywords: {
+            type: "keyword",
+          },
+
           recentCompany: { type: "text" },
           companyNamesAll: { type: "keyword" },
 
@@ -148,6 +158,9 @@ export const indexCandidate = async (candidate) => {
       recentCompany: candidate.recentCompany || "",
       companyNamesAll: toArray(candidate.companyNamesAll),
 
+      resumeText: candidate.resumeText || "",
+      resumeKeywords: candidate.resumeKeywords || [],
+
       location: (candidate.location || "").trim(),
 
       experience: parseExperience(candidate.experience),
@@ -177,7 +190,7 @@ export const indexCandidate = async (candidate) => {
    HYBRID SEARCH QUERY (Exact + Phrase + Match + Ngram + Fuzzy)
 --------------------------------------------------------- */
 export const buildHybridSearchQuery = (q, filters = {}) => {
-  const { minExp = null, maxExp = null } = filters;
+  const { minExp = null, maxExp = null, keywords = [] } = filters;
   let must = [];
   let should = [];
   let filter = [];
@@ -286,19 +299,19 @@ export const buildHybridSearchQuery = (q, filters = {}) => {
   --------------------------------------------------------- */
   /* EXPERIENCE FILTER */
 
-if (minExp !== null && maxExp !== null) {
-  filter.push({
-    range: { experience: { gte: minExp, lte: maxExp } },
-  });
-} else if (minExp !== null) {
-  filter.push({
-    range: { experience: { gte: minExp } },
-  });
-} else if (maxExp !== null) {
-  filter.push({
-    range: { experience: { lte: maxExp } },
-  });
-}
+  if (minExp !== null && maxExp !== null) {
+    filter.push({
+      range: { experience: { gte: minExp, lte: maxExp } },
+    });
+  } else if (minExp !== null) {
+    filter.push({
+      range: { experience: { gte: minExp } },
+    });
+  } else if (maxExp !== null) {
+    filter.push({
+      range: { experience: { lte: maxExp } },
+    });
+  }
 
   /* ---------------------------------------------------------
      DESIGNATION FILTER
@@ -316,13 +329,44 @@ if (minExp !== null && maxExp !== null) {
     });
   }
 
+  /* ---------------------------------------------------------
+   5) RESUME KEYWORDS SEARCH (PDF CONTENT)
+--------------------------------------------------------- */
+  if (keywords && keywords.length > 0) {
+    keywords
+      .flatMap((k) => k.toLowerCase().split(/\s+/))
+      .forEach((kw) => {
+        should.push(
+          // Exact extracted keyword match
+          {
+            term: {
+              resumeKeywords: {
+                value: kw,
+                boost: 20,
+              },
+            },
+          },
+
+          // Full resume text match
+          {
+            match: {
+              resumeText: {
+                query: kw,
+                boost: 10,
+              },
+            },
+          }
+        );
+      });
+  }
+
   return {
     query: {
       bool: {
         must,
         should,
         filter,
-        minimum_should_match: 1,
+        minimum_should_match: should.length > 0 ? 1 : 0,
       },
     },
   };
