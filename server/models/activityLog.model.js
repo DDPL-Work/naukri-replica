@@ -18,7 +18,9 @@ const ActivityLogSchema = new mongoose.Schema({
       "add_candidate",
       "login",
       "logout",
-      "BULK_UPLOAD"  
+      "BULK_UPLOAD",
+      "create_recruiter",
+      "resume_view",
     ],
     required: true,
   },
