@@ -6,10 +6,13 @@ import {
   FiLogIn,
   FiChevronDown,
   FiEdit3,
+  FiUpload,
+  FiPlus,
 } from "react-icons/fi";
 import { useDispatch, useSelector } from "react-redux";
 import API from "../../API/axiosInstance";
 import { fetchRecruiterLogs } from "../../features/slices/recruiterLogSlice";
+import { fetchAdminUploadLogs } from "../../features/slices/adminUploadLogSlice";
 import { listRecruiters } from "../../features/slices/adminSlice";
 
 /* ------------------------------------------------
@@ -35,14 +38,16 @@ const formatDateTime = (dateString) => {
 function exportCSV(rows) {
   if (!rows.length) return;
 
-  const header = ["Timestamp", "Recruiter", "Activity", "Details"];
+  const header = ["Timestamp", "Actor", "Activity", "Details"];
 
   const csvContent = [
     header.join(","),
     ...rows.map((r) =>
       [
         `"${formatDateTime(r.createdAt)}"`,
-        `"${r.recruiterId?.name} (${r.recruiterId?.email})"`,
+        `"${r.recruiterId?.name || r.adminId?.name || "Unknown"} (${
+          r.recruiterId?.email || r.adminId?.email || ""
+        })"`,
         `"${r.action}"`,
         `"${JSON.stringify(r.details).replace(/"/g, '""')}"`,
       ].join(",")
@@ -80,6 +85,9 @@ const activityIcon = (action) => {
   if (a.includes("update")) return <FiEdit3 />;
   if (a.includes("login")) return <FiLogIn />;
   if (a.includes("logout")) return <FiLogIn />;
+  if (a.includes("upload")) return <FiUpload />;
+  if (a.includes("add_candidate")) return <FiPlus />;
+  if (a.includes("create_recruiter")) return <FiPlus />;
 
   return <FiEye />;
 };
@@ -98,6 +106,9 @@ const activityColorClass = (action) => {
   if (a.includes("update")) return "bg-orange-100 text-orange-700";
   if (a.includes("login")) return "bg-red-100 text-red-700";
   if (a.includes("logout")) return "bg-gray-300 text-gray-900";
+  if (a.includes("upload")) return "bg-teal-100 text-teal-700";
+  if (a.includes("add_candidate")) return "bg-blue-600 text-white";
+  if (a.includes("create_recruiter")) return "bg-yellow-300 text-teal-800";
 
   return "bg-gray-200 text-gray-700";
 };
@@ -108,13 +119,51 @@ const activityColorClass = (action) => {
 export default function AdminActivityLogsPage() {
   const dispatch = useDispatch();
 
-  const { logs, loading, error } = useSelector((state) => state.recruiterLogs);
+  const {
+    logs: recruiterLogs,
+    loading: recruiterLoading,
+    error: recruiterError,
+  } = useSelector((state) => state.recruiterLogs);
+  const {
+    logs: adminUploadLogs,
+    loading: adminUploadLoading,
+    error: adminUploadError,
+  } = useSelector((state) => state.adminUploadLogs);
   const { recruiters } = useSelector((state) => state.admin);
 
   useEffect(() => {
     dispatch(fetchRecruiterLogs());
+    dispatch(fetchAdminUploadLogs());
     dispatch(listRecruiters());
   }, [dispatch]);
+
+  /* ------------------------------------------
+     MERGE LOGS FROM BOTH SLICES
+  ------------------------------------------ */
+  const combinedLogs = useMemo(() => {
+    const recruiterLogsWithSource = (recruiterLogs || []).map((log) => ({
+      ...log,
+      action: log.action?.toLowerCase(), // 🔥 normalize here
+      logSource: "recruiter",
+    }));
+
+    const adminLogsWithSource = (adminUploadLogs || []).map((log) => ({
+      ...log,
+      action: log.action?.toLowerCase(), // 🔥 normalize here
+      logSource: "admin",
+      recruiterId: {
+        ...log.adminId,
+        role: "ADMIN",
+      },
+    }));
+
+    // Combine and sort by timestamp (newest first)
+    return [...recruiterLogsWithSource, ...adminLogsWithSource].sort((a, b) => {
+      const dateA = new Date(a.createdAt);
+      const dateB = new Date(b.createdAt);
+      return dateB - dateA;
+    });
+  }, [recruiterLogs, adminUploadLogs]);
 
   /* ------------------------------------------
      CANDIDATE NAME CACHE
@@ -197,6 +246,83 @@ export default function AdminActivityLogsPage() {
       );
     }
 
+    /* Admin upload logs beautified */
+    if (details.fileName) {
+      return (
+        <div className="text-xs text-zinc-800 space-y-1">
+          <span className="font-semibold">Uploaded File:</span>
+          <span className="text-blue-700 font-semibold">
+            {" "}
+            {details.fileName}
+          </span>
+          {details.candidatesCount !== undefined && (
+            <span className="text-zinc-500">
+              {" "}
+              ({details.candidatesCount} candidates)
+            </span>
+          )}
+        </div>
+      );
+    }
+
+    if (action === "create_recruiter" && details?.name && details?.email) {
+      return (
+        <div className="text-xs text-zinc-800 space-y-1">
+          <div className="flex items-center gap-1 font-semibold text-teal-700">
+            <FiPlus className="text-sm" />
+            Recruiter Created
+          </div>
+
+          <div>
+            <span className="font-semibold text-zinc-600">Name:</span>{" "}
+            <span className="text-zinc-900">{details.name}</span>
+          </div>
+
+          <div>
+            <span className="font-semibold text-zinc-600">Email:</span>{" "}
+            <span className="text-blue-700">{details.email}</span>
+          </div>
+
+          {details.dailyDownloadLimit !== undefined && (
+            <div className="text-zinc-500">
+              Daily Download Limit:{" "}
+              <span className="font-semibold text-zinc-700">
+                {details.dailyDownloadLimit}
+              </span>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    /* ------------------------------------------------
+      ADMIN – ADD CANDIDATE (MANUAL)
+    -------------------------------------------------- */
+    if (action === "add_candidate" && details.name && details.email) {
+      return (
+        <div className="text-xs text-zinc-800 space-y-1">
+          <div className="flex items-center gap-1 font-semibold">
+            <FiPlus className="text-sm" />
+            Candidate Added
+          </div>
+
+          <div>
+            <span className="font-semibold  text-blue-700">Name:</span>{" "}
+            {details.name}
+          </div>
+
+          <div>
+            <span className="font-semibold  text-blue-700">Email:</span>{" "}
+            {details.email}
+          </div>
+
+          {details.source && (
+            <div className="text-zinc-500 ">Source: {details.source}</div>
+          )}
+        </div>
+      );
+    }
+
     if (action === "login")
       return (
         <div className="text-xs">
@@ -235,6 +361,7 @@ export default function AdminActivityLogsPage() {
   }, [recruiters]);
 
   const [recruiterFilter, setRecruiterFilter] = useState("all");
+  const [actorFilter, setActorFilter] = useState("ALL");
   const [activityFilter, setActivityFilter] = useState("All Activity");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
@@ -242,16 +369,44 @@ export default function AdminActivityLogsPage() {
   /* ------------------------------------------------
      FILTERING LOGS
   -------------------------------------------------- */
-  const filteredRows = logs.filter((row) => {
-    if (!row.recruiterId || row.recruiterId.role === "ADMIN") return false;
+  const filteredRows = combinedLogs.filter((row) => {
+    // 🔹 Actor filter - Filter by log source and role (HIGHEST PRIORITY)
+    if (actorFilter === "RECRUITER") {
+      // Show ALL recruiter logs when "Recruiter Actions" is selected
+      // Check both logSource and role to be safe
+      const isRecruiterLog =
+        row.logSource === "recruiter" ||
+        (row.recruiterId && row.recruiterId.role === "RECRUITER");
 
-    // Match recruiter by ID
-    if (recruiterFilter !== "all" && row.recruiterId._id !== recruiterFilter)
+      if (!isRecruiterLog) {
+        return false;
+      }
+
+      // Then apply specific recruiter filter if selected
+      if (
+        recruiterFilter !== "all" &&
+        row.recruiterId?._id !== recruiterFilter
+      ) {
+        return false;
+      }
+    } else if (actorFilter === "ADMIN") {
+      // Show ALL admin logs when "Admin Actions" is selected
+      const isAdminLog =
+        row.logSource === "admin" ||
+        (row.recruiterId && row.recruiterId.role === "ADMIN");
+
+      if (!isAdminLog) {
+        return false;
+      }
+    }
+    // If actorFilter === "ALL", show both recruiters and admins
+
+    // 🔹 Activity filter
+    if (activityFilter !== "All Activity" && row.action !== activityFilter) {
       return false;
+    }
 
-    if (activityFilter !== "All Activity" && row.action !== activityFilter)
-      return false;
-
+    // 🔹 Date filter
     const d = row.createdAt?.slice(0, 10);
     if (fromDate && d < fromDate) return false;
     if (toDate && d > toDate) return false;
@@ -273,6 +428,7 @@ export default function AdminActivityLogsPage() {
 
   const resetFilters = () => {
     setRecruiterFilter("all");
+    setActorFilter("ALL");
     setActivityFilter("All Activity");
     setFromDate("");
     setToDate("");
@@ -281,8 +437,10 @@ export default function AdminActivityLogsPage() {
   /* ------------------------------------------------
      UI RENDER
   -------------------------------------------------- */
-  if (loading)
-    return <div className="p-10 text-center text-xl">Loading…</div>;
+  const loading = recruiterLoading || adminUploadLoading;
+  const error = recruiterError || adminUploadError;
+
+  if (loading) return <div className="p-10 text-center text-xl">Loading…</div>;
 
   if (error)
     return (
@@ -295,7 +453,7 @@ export default function AdminActivityLogsPage() {
     <div className="min-h-screen bg-white px-10 py-8">
       <h1 className="text-4xl font-serif font-bold">Activity Logs</h1>
       <p className="text-gray-500 text-lg mt-1 mb-6">
-        Track all recruiter activities
+        Track all admin and recruiter activities
       </p>
 
       {/* FILTER BAR */}
@@ -306,7 +464,10 @@ export default function AdminActivityLogsPage() {
             <select
               value={recruiterFilter}
               onChange={(e) => setRecruiterFilter(e.target.value)}
-              className="appearance-none bg-[#FAFAF9] border border-gray-300 rounded-md px-4 pr-10 py-2 text-sm w-full"
+              disabled={actorFilter === "ADMIN"}
+              className={`appearance-none bg-[#FAFAF9] border border-gray-300 rounded-md px-4 pr-10 py-2 text-sm w-full ${
+                actorFilter === "ADMIN" ? "opacity-50 cursor-not-allowed" : ""
+              }`}
             >
               {recruiterOptions.map((r) => (
                 <option key={r.value} value={r.value}>
@@ -324,13 +485,32 @@ export default function AdminActivityLogsPage() {
               onChange={(e) => setActivityFilter(e.target.value)}
               className="appearance-none bg-[#FAFAF9] border border-gray-300 rounded-md px-4 pr-10 py-2 text-sm w-full"
             >
-              {["All Activity", ...new Set(logs.map((l) => l.action))].map(
-                (a) => (
-                  <option key={a} value={a}>
-                    {prettyActivity(a)}
-                  </option>
-                )
-              )}
+              {[
+                "All Activity",
+                ...new Set(combinedLogs.map((l) => l.action)),
+              ].map((a) => (
+                <option key={a} value={a}>
+                  {prettyActivity(a)}
+                </option>
+              ))}
+            </select>
+            <FiChevronDown className="absolute right-3 top-3 text-gray-500" />
+          </div>
+          {/* Actor Filter */}
+          <div className="relative w-44">
+            <select
+              value={actorFilter}
+              onChange={(e) => {
+                setActorFilter(e.target.value);
+                if (e.target.value === "ADMIN") {
+                  setRecruiterFilter("all"); // reset recruiter filter
+                }
+              }}
+              className="appearance-none bg-[#FAFAF9] border border-gray-300 rounded-md px-4 pr-10 py-2 text-sm w-full"
+            >
+              <option value="ALL">All Actions</option>
+              <option value="RECRUITER">Recruiter Actions</option>
+              <option value="ADMIN">Admin Actions</option>
             </select>
             <FiChevronDown className="absolute right-3 top-3 text-gray-500" />
           </div>
@@ -373,7 +553,7 @@ export default function AdminActivityLogsPage() {
       <div className="border border-gray-200 rounded-lg overflow-hidden shadow-sm">
         <div className="bg-[#0D3B66] text-white text-sm font-semibold grid grid-cols-[13rem_15rem_16rem_1fr] py-3 px-4">
           <div>TIMESTAMP</div>
-          <div>RECRUITER</div>
+          <div>ACTOR</div>
           <div>ACTIVITY</div>
           <div>DETAILS</div>
         </div>
@@ -386,10 +566,18 @@ export default function AdminActivityLogsPage() {
             <div>{formatDateTime(row.createdAt)}</div>
 
             <div>
-              {row.recruiterId?.name}{" "}
-              <span className="text-gray-500 text-xs">
-                ({row.recruiterId?.email})
-              </span>
+              {row.recruiterId?.name}
+              {row.recruiterId?.email && (
+                <span className="text-gray-500 text-xs">
+                  ({row.recruiterId.email})
+                </span>
+              )}
+
+              {/* {row.recruiterId?.role === "ADMIN" && (
+                <span className="ml-2 text-[10px] px-2 py-[2px] rounded-full bg-black text-white">
+                  ADMIN
+                </span>
+              )} */}
             </div>
 
             <div className="flex items-center gap-2">

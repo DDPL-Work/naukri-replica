@@ -89,6 +89,55 @@ export const updateRecruiter = createAsyncThunk(
   }
 );
 
+// -------------------------------
+// DELETE RECRUITER (PERMANENT)
+// -------------------------------
+export const deleteRecruiter = createAsyncThunk(
+  "recruiter/deleteRecruiter",
+  async (id, { rejectWithValue, getState }) => {
+    try {
+      const token = getState()?.auth?.token;
+
+      await axios.delete(`${API_BASE}/admin/recruiters/${id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      return id;
+    } catch (err) {
+      return rejectWithValue(
+        err.response?.data?.error || "Failed to delete recruiter"
+      );
+    }
+  }
+);
+
+// -------------------------------
+// RECRUITER DOWNLOAD USAGE (TODAY)
+// -------------------------------
+export const fetchRecruiterUsageToday = createAsyncThunk(
+  "admin/fetchRecruiterUsageToday",
+  async (_, { rejectWithValue, getState }) => {
+    try {
+      const token = getState()?.auth?.token;
+
+      const res = await axios.get(
+        `${API_BASE}/admin/analytics/recruiter-download-usage`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      return res.data;
+    } catch (err) {
+      return rejectWithValue(
+        err.response?.data?.error || "Failed to fetch recruiter usage"
+      );
+    }
+  }
+);
+
 
 // -------------------------------
 // ADMIN ANALYTICS
@@ -274,6 +323,41 @@ const adminSlice = createSlice({
         state.updateSuccess = false;
         state.updateError = action.payload;
       })
+
+      // -------------------------------
+      // DELETE RECRUITER
+      // -------------------------------
+
+      .addCase(deleteRecruiter.pending, (state) => {
+        state.updateLoading = true;
+      })
+
+      .addCase(deleteRecruiter.fulfilled, (state, action) => {
+        state.updateLoading = false;
+        state.recruiters = state.recruiters.filter(
+          (r) => r._id !== action.payload
+        );
+      })
+
+      .addCase(deleteRecruiter.rejected, (state, action) => {
+        state.updateLoading = false;
+        state.updateError = action.payload;
+      })
+
+      .addCase(fetchRecruiterUsageToday.pending, (state) => {
+  state.recruiterUsageLoading = true;
+})
+
+.addCase(fetchRecruiterUsageToday.fulfilled, (state, action) => {
+  state.recruiterUsageLoading = false;
+  state.recruiterUsageData = action.payload;
+})
+
+.addCase(fetchRecruiterUsageToday.rejected, (state, action) => {
+  state.recruiterUsageLoading = false;
+  state.recruiterUsageError = action.payload;
+})
+
 
       // -------------------------------
       // ANALYTICS

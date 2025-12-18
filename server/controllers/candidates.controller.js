@@ -288,31 +288,28 @@ export const updateFeedback = async (req, res, next) => {
 };
 
 /* -------------------------------------------------------
-   RESUME VIEW WITH DAILY LIMITS
+   RESUME PREVIEW (NO LIMIT, NO LOG)
 ------------------------------------------------------- */
 export const viewResume = async (req, res, next) => {
   try {
-    const id = req.params.id;
-    const c = await Candidate.findById(id);
+    const { id } = req.params;
 
-    const resumeUrl = c?.pdfFile || c?.resumeUrl;
-    if (!c || !resumeUrl)
+    const candidate = await Candidate.findById(id).lean();
+    if (!candidate)
+      return res.status(404).json({ error: "Candidate not found" });
+
+    const resumeUrl = candidate.pdfFile || candidate.resumeUrl;
+    if (!resumeUrl)
       return res.status(404).json({ error: "Resume not found" });
 
-    if (req.user.role === "RECRUITER") {
-      const allowed = await canDownloadResume(req.user._id);
-
-      if (!allowed)
-        return res.status(403).json({
-          error: "Daily resume view limit reached",
-        });
-
-      await logDownload(req.user._id, c._id);
-    }
-
-    res.json({ url: resumeUrl });
+    // ✅ Preview mode → NO LIMIT CHECK, NO LOGGING
+    return res.json({
+      resumeUrl,
+      preview: true,
+    });
   } catch (err) {
-    logger.error("viewResume error:", err);
     next(err);
   }
 };
+
+

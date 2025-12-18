@@ -43,7 +43,9 @@ export const registerInitialAdmin = async (req, res, next) => {
 export const registerRecruiter = async (req, res, next) => {
   try {
     if (req.user.role !== "ADMIN") {
-      return res.status(403).json({ error: "Only admin can create recruiters" });
+      return res
+        .status(403)
+        .json({ error: "Only admin can create recruiters" });
     }
 
     const { name, email, password, dailyDownloadLimit } = req.body;
@@ -69,8 +71,13 @@ export const registerRecruiter = async (req, res, next) => {
     // Log admin action (optional)
     await ActivityLog.create({
       userId: req.user._id,
-      type: "add_candidate", // FIXED ENUM
-      details: { recruiterId: recruiter._id },
+      type: "create_recruiter",
+      details: {
+        recruiterId: recruiter._id,
+        name: recruiter.name,
+        email: recruiter.email,
+        dailyDownloadLimit: recruiter.dailyDownloadLimit,
+      },
     });
 
     res.status(201).json({
@@ -93,16 +100,14 @@ export const loginController = async (req, res, next) => {
       return res.status(400).json({ error: "Email & password required" });
 
     const user = await User.findOne({ email, active: true });
-    if (!user)
-      return res.status(401).json({ error: "Invalid credentials" });
+    if (!user) return res.status(401).json({ error: "Invalid credentials" });
 
     const validRoles = ["RECRUITER", "ADMIN"];
     if (!validRoles.includes(user.role))
       return res.status(403).json({ error: "Invalid user role" });
 
     const valid = await bcrypt.compare(password, user.password);
-    if (!valid)
-      return res.status(401).json({ error: "Invalid credentials" });
+    if (!valid) return res.status(401).json({ error: "Invalid credentials" });
 
     // Generate token
     const token = jwt.sign(
@@ -127,7 +132,6 @@ export const loginController = async (req, res, next) => {
         dailyDownloadLimit: user.dailyDownloadLimit,
       },
     });
-
   } catch (err) {
     next(err);
   }
@@ -153,7 +157,6 @@ export const logoutController = async (req, res, next) => {
     }
 
     return res.json({ success: true, message: "Logged out successfully" });
-
   } catch (err) {
     next(err);
   }

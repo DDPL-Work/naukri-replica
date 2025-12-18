@@ -44,7 +44,7 @@ router.patch(
 router.get(
   "/:id/resume",
   authMiddleware(["RECRUITER", "ADMIN"]),
-  logAction("resume_download"),
+  logAction("resume_view"),
   viewResume
 );
 

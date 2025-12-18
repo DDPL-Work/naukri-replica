@@ -1,8 +1,13 @@
-import React, { useEffect, useState } from "react";
-import { FiSearch, FiEdit2, FiXCircle } from "react-icons/fi";
+import React, { useEffect, useMemo, useState } from "react";
+import { FiSearch, FiEdit2, FiXCircle, FiTrash2 } from "react-icons/fi";
 import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { listRecruiters, updateRecruiter } from "../../features/slices/adminSlice";
+import {
+  deleteRecruiter,
+  fetchRecruiterUsageToday,
+  listRecruiters,
+  updateRecruiter,
+} from "../../features/slices/adminSlice";
 import { jwtDecode } from "jwt-decode";
 import axios from "axios";
 import toast from "react-hot-toast";
@@ -11,14 +16,23 @@ export default function RecruiterManagement() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
-  const { recruiters, listLoading, listError, updateLoading, updateError, updateSuccess } =
-    useSelector((state) => state.admin);
+  const {
+    recruiters,
+    listLoading,
+    listError,
+    updateLoading,
+    updateError,
+    updateSuccess,
+    recruiterUsageData,
+  } = useSelector((state) => state.admin);
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All Status");
   const [isAdmin, setIsAdmin] = useState(false);
 
+  // -----------------------------
   // ADMIN AUTH CHECK
+  // -----------------------------
   useEffect(() => {
     const token = sessionStorage.getItem("token");
     if (!token) return;
@@ -36,12 +50,17 @@ export default function RecruiterManagement() {
     }
   }, []);
 
-  // FETCH RECRUITERS
+  // -----------------------------
+  // FETCH DATA
+  // -----------------------------
   useEffect(() => {
     dispatch(listRecruiters());
+    dispatch(fetchRecruiterUsageToday());
   }, []);
 
+  // -----------------------------
   // TOASTS
+  // -----------------------------
   useEffect(() => {
     if (listError) toast.error(listError);
   }, [listError]);
@@ -50,22 +69,22 @@ export default function RecruiterManagement() {
     if (updateSuccess) toast.success("Recruiter updated successfully");
     if (updateError) toast.error(updateError);
   }, [updateSuccess, updateError]);
+  
 
-  // STATUS BADGE STYLE
-  const badge = (active) => {
-    const isActive = active === true;
-    return (
-      <span
-        className={`px-3 py-0.5 rounded-full text-xs font-normal font-[Calibri] leading-4 ${
-          isActive ? "bg-lime-400 text-black" : "bg-red-600 text-white"
-        }`}
-      >
-        {isActive ? "Active" : "Inactive"}
-      </span>
-    );
-  };
+  // -----------------------------
+  // USAGE MAP (recruiterId -> usedToday)
+  // -----------------------------
+  const usageMap = useMemo(() => {
+    const map = {};
+    recruiterUsageData?.recruiters?.forEach((u) => {
+      map[u.recruiterId] = u.usedToday;
+    });
+    return map;
+  }, [recruiterUsageData]);
 
+  // -----------------------------
   // FILTERING
+  // -----------------------------
   const filteredRecruiters = recruiters.filter((r) => {
     const matchSearch =
       r.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -75,74 +94,128 @@ export default function RecruiterManagement() {
       statusFilter === "All Status"
         ? true
         : statusFilter === "Active"
-        ? r.active === true
-        : r.active === false;
+        ? r.active
+        : !r.active;
 
     return matchSearch && matchStatus;
   });
 
-  // UPDATE STATUS
+  // -----------------------------
+  // ACTIONS
+  // -----------------------------
   const toggleStatus = (id, currentStatus) => {
     dispatch(updateRecruiter({ id, updates: { active: !currentStatus } }));
   };
 
-  // BLOCK NON-ADMINS
+  const handleDelete = (id, name) => {
+    toast(
+      (t) => (
+        <div className="flex flex-col gap-3">
+          <p className="font-semibold">
+            Delete recruiter <span className="text-red-600">{name}</span>?
+          </p>
+          <p className="text-sm text-gray-500">
+            This action is permanent and cannot be undone.
+          </p>
+
+          <div className="flex justify-end gap-3 mt-2">
+            <button
+              onClick={() => toast.dismiss(t.id)}
+              className="px-3 py-1 text-sm border rounded"
+            >
+              Cancel
+            </button>
+
+            <button
+              onClick={() => {
+                dispatch(deleteRecruiter(id));
+                toast.dismiss(t.id);
+                toast.success("Recruiter deleted permanently");
+              }}
+              className="px-3 py-1 text-sm bg-red-600 text-white rounded"
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      ),
+      { duration: 8000 }
+    );
+  };
+
+  // -----------------------------
+  // ACCESS BLOCK
+  // -----------------------------
   if (!isAdmin) {
     return (
       <div className="p-10 text-center">
-        <p className="text-2xl text-red-600 font-bold">Access Denied — Admin Only</p>
+        <p className="text-2xl text-red-600 font-bold">
+          Access Denied — Admin Only
+        </p>
       </div>
     );
   }
 
   return (
     <div className="w-full min-h-screen bg-white p-10">
-      {/* PAGE TITLE */}
-      <div className="flex justify-between items-center w-full mb-3">
-        <h1 className="text-black text-4xl font-bold font-serif leading-[60px]">
-          Recruiter Management
-        </h1>
+      {/* ================= HEADER ================= */}
+      <div className="flex justify-between items-center mb-3">
+        <h1 className="text-4xl font-bold">Recruiter Management</h1>
 
         <Link
           to="/admin/recruiter-management/add"
-          className="bg-lime-400 px-4 py-2 rounded-md 
-            text-black text-base font-normal font-[Calibri]"
+          className="bg-lime-400 px-4 py-2 rounded-md text-black"
         >
           Add Recruiter
         </Link>
       </div>
 
-      {/* SUBTITLE */}
-      <p className="text-zinc-500 text-xl font-normal font-[Calibri] leading-6 mb-8">
+      <p className="text-zinc-500 text-xl mb-6">
         Manage recruiter accounts and permissions
       </p>
 
-      {/* FILTER BOX */}
-      <div className="bg-white border border-gray-300 rounded-lg p-6 mb-8">
-        <h2 className="text-black text-2xl font-bold font-[Calibri] leading-6 mb-6">
-          Filters
-        </h2>
+      {/* ================= GLOBAL USAGE ================= */}
+      {/* {recruiterUsageData?.global && (
+        <div className="mb-8 bg-[#F9FAFB] border border-gray-300 rounded-lg p-6">
+          <h2 className="text-xl font-bold mb-3">Download Usage (Today)</h2>
 
-        <div className="flex gap-4 flex-wrap">
-          {/* SEARCH */}
-          <div className="relative flex-1 min-w-[300px]">
-            <FiSearch className="absolute left-3 top-3 text-gray-500" size={18} />
+          <div className="flex gap-8 text-sm">
+            <div>
+              Used:{" "}
+              <b className="text-red-600">
+                {recruiterUsageData.global.usedToday}
+              </b>
+            </div>
+            <div>
+              Total Limit: <b>{recruiterUsageData.global.totalLimit}</b>
+            </div>
+            <div>
+              Remaining:{" "}
+              <b className="text-green-700">
+                {recruiterUsageData.global.remainingToday}
+              </b>
+            </div>
+          </div>
+        </div>
+      )} */}
+
+      {/* ================= FILTERS ================= */}
+      <div className="border border-gray-200 rounded-lg p-6 mb-8">
+        <div className="flex gap-4">
+          <div className="relative flex-1">
+            <FiSearch className="absolute left-3 top-3 text-gray-500" />
             <input
-              type="text"
-              placeholder="Search by name or email..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full h-10 bg-[#FCFBF8] rounded-md pl-10 pr-4 border border-gray-300 
-                text-zinc-500 text-sm font-normal font-[Calibri]"
+              placeholder="Search by name or email"
+              className="w-full h-10 pl-10 border border-gray-200 focus:outline-gray-300 rounded-md"
             />
           </div>
 
-          {/* STATUS DROPDOWN */}
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="w-[180px] h-10 bg-[#FCFBF8] px-3 py-2 border border-gray-300 rounded-md 
-                text-zinc-500 text-sm font-normal font-[Calibri] leading-5"
+            className="h-10 border border-gray-200 rounded-md px-3"
           >
             <option>All Status</option>
             <option>Active</option>
@@ -151,56 +224,48 @@ export default function RecruiterManagement() {
         </div>
       </div>
 
-      {/* TABLE */}
-      <div className="bg-white border border-gray-300 rounded-lg overflow-hidden">
-        {/* TABLE HEADER */}
-        <div className="bg-[#10407E] text-white px-8 py-3">
-          <div className="grid grid-cols-12 items-center 
-            text-white text-sm font-bold font-[Calibri] uppercase leading-5 tracking-wide"
-          >
-            <div className="col-span-3">Recruiter Name</div>
-            <div className="col-span-3">Email</div>
-            <div className="col-span-2">Status</div>
-            <div className="col-span-2">Daily Limit</div>
-            <div className="col-span-2 text-center">Actions</div>
-          </div>
+      {/* ================= TABLE ================= */}
+      <div className="border border-gray-200 rounded-lg overflow-hidden">
+        <div className="bg-[#10407E] text-white px-8 py-3 grid grid-cols-12 font-bold text-sm">
+          <div className="col-span-3">Recruiter</div>
+          <div className="col-span-3">Email</div>
+          <div className="col-span-2">Status</div>
+          <div className="col-span-2">Usage (Today)</div>
+          <div className="col-span-2 text-center">Actions</div>
         </div>
 
-        {/* TABLE BODY */}
         {listLoading ? (
           <div className="p-6 text-center">Loading recruiters...</div>
-        ) : filteredRecruiters.length === 0 ? (
-          <div className="p-6 text-center text-gray-500">No recruiters found</div>
         ) : (
-          filteredRecruiters.map((r) => (
-            <div key={r._id} className="border-b border-gray-200 hover:bg-gray-50 transition">
-              <div className="grid grid-cols-12 items-center px-8 py-3">
+          filteredRecruiters.map((r) => {
+            const usedToday = usageMap[r._id] || 0;
 
-                {/* NAME */}
-                <div className="col-span-3 text-black text-sm font-normal font-[Calibri] leading-5">
-                  {r.name}
+            return (
+              <div
+                key={r._id}
+                className="grid grid-cols-12 px-8 py-3 border-b border-gray-200 items-center"
+              >
+                <div className="col-span-3">{r.name}</div>
+                <div className="col-span-3 text-gray-600">{r.email}</div>
+                <div className="col-span-2">
+                  {r.active ? "Active" : "Inactive"}
+                </div>
+                <div className="col-span-2 font-medium text-gray-800">
+                  {usedToday} / {r.dailyDownloadLimit}
                 </div>
 
-                {/* EMAIL */}
-                <div className="col-span-3 text-zinc-500 text-base font-normal font-[Calibri] leading-6">
-                  {r.email}
-                </div>
-
-                {/* STATUS */}
-                <div className="col-span-2">{badge(r.active)}</div>
-
-                {/* DAILY LIMIT */}
-                <div className="col-span-2 text-black text-xs font-bold font-[Calibri] leading-4">
-                  {r.dailyDownloadLimit}
-                </div>
-
-                {/* ACTIONS */}
-                <div className="col-span-2 flex items-center justify-center gap-3">
+                <div className="col-span-2 flex justify-center gap-3">
                   {/* EDIT */}
                   <button
-                    onClick={() => navigate(`/admin/recruiter-management/edit/${r._id}`)}
-                    className="w-6 h-6 flex items-center justify-center bg-gray-200 
-                      text-black text-xs font-normal font-[Calibri] leading-4 rounded-sm hover:bg-orange-200"
+                    type="button"
+                    onClick={(e) => {
+                      console.log("EDIT CLICKED", r._id);
+                      e.preventDefault();
+                      e.stopPropagation();
+                      navigate(`/admin/recruiter-management/edit/${r._id}`);
+                    }}
+                    className="w-6 h-6 flex items-center justify-center 
+             bg-gray-200 hover:bg-orange-200 rounded-sm"
                   >
                     <FiEdit2 size={15} />
                   </button>
@@ -209,20 +274,26 @@ export default function RecruiterManagement() {
                   <button
                     disabled={updateLoading}
                     onClick={() => toggleStatus(r._id, r.active)}
-                    className={`flex items-center gap-1 px-3 py-1 rounded border text-xs font-normal font-[Calibri] leading-4
-                      ${
-                        r.active
-                          ? "text-red-600 border-red-300"
-                          : "text-green-700 border-green-300"
-                      }`}
+                    className={`flex items-center gap-1 px-3 py-1 rounded border text-xs font-normal font-[Calibri] leading-4 ${
+                      r.active
+                        ? "text-red-600 border-red-300"
+                        : "text-green-700 border-green-300"
+                    }`}
                   >
                     <FiXCircle size={14} />
-                    {r.active ? "Deactivate" : "Activate"}
+                    {r.active ? "Deactivate" : "Activate"}{" "}
+                  </button>
+
+                  <button
+                    onClick={() => handleDelete(r._id, r.name)}
+                    className="text-red-600"
+                  >
+                    <FiTrash2 />
                   </button>
                 </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>

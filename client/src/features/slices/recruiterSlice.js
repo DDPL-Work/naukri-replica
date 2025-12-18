@@ -151,6 +151,32 @@ export const downloadResumeThunk = createAsyncThunk(
     }
   }
 );
+// -------------------------------------------------------------
+// VIEW RESUME
+// -------------------------------------------------------------
+export const viewResumeThunk = createAsyncThunk(
+  "recruiter/downloadResume",
+  async (candidateId, { rejectWithValue }) => {
+    try {
+      const res = await API.get(`/candidates/${candidateId}/resume`);
+
+      return {
+        candidateId,
+        url: res.data.resumeUrl,
+      };
+    } catch (err) {
+      return rejectWithValue({
+        candidateId,
+        message:
+          err.response?.data?.error ||
+          err.response?.data?.message ||
+          "Download failed",
+      });
+    }
+  }
+);
+
+
 
 // -------------------------------------------------------------
 // SLICE

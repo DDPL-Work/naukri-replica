@@ -5,6 +5,7 @@ import adminReducer from "./slices/adminSlice";
 import bulkReducer from "./slices/bulkSlice";
 import recruiterReducer from './slices/recruiterSlice.js';
 import recruiterLogReducer from './slices/recruiterLogSlice.js'
+import adminUploadLogsReducer from './slices/adminUploadLogSlice.js'
 import { setupAxiosInterceptors } from "../API/axiosInstance.js";
 
 
@@ -15,6 +16,7 @@ export const store = configureStore({
     bulk: bulkReducer,
     recruiter: recruiterReducer,
     recruiterLogs: recruiterLogReducer,
+    adminUploadLogs: adminUploadLogsReducer,
   },
 });
 

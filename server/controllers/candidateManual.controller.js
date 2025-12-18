@@ -2,6 +2,7 @@ import Candidate from "../models/candidate.model.js";
 import { v2 as cloudinary } from "cloudinary";
 import fs from "fs";
 import { indexCandidate } from "../services/elasticsearch.service.js";
+import ActivityLog from "../models/activityLog.model.js";
 
 export const addCandidateManual = async (req, res) => {
   try {
@@ -99,7 +100,7 @@ export const addCandidateManual = async (req, res) => {
       resumeUrl: viewUrl,
       resumePublicId: uploaded.public_id,
 
-       pdfFile: uploaded.secure_url,
+      pdfFile: uploaded.secure_url,
 
       portal: req.body.portal || null,
       portalDate: toDate(req.body.portalDate),
@@ -133,6 +134,17 @@ export const addCandidateManual = async (req, res) => {
     // SAVE → MONGO
     // ------------------------------
     const saved = await Candidate.create(data);
+
+    await ActivityLog.create({
+      userId: req.user._id,
+      type: "add_candidate",
+      details: {
+        candidateId: saved._id,
+        source: "manual",
+        name: saved.name,
+        email: saved.email,
+      },
+    });
 
     // ------------------------------
     // INDEX → ELASTICSEARCH

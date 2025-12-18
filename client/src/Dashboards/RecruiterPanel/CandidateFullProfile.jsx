@@ -9,6 +9,7 @@ import {
   downloadResumeThunk,
   getCandidateById,
   updateCandidateFeedback,
+  viewResumeThunk,
 } from "../../features/slices/recruiterSlice";
 
 import toast from "react-hot-toast";
@@ -119,14 +120,14 @@ export default function CandidateProfilePage() {
   // Remarks list (array)
   const remarksList = candidate.remarks || [];
 
-  // Download resume
-  const handleResumeDownload = async (candidateId) => {
+  // View resume
+  const handleResumeView = async (candidateId) => {
     try {
-      const res = await dispatch(downloadResumeThunk(candidateId)).unwrap();
+      const res = await dispatch(viewResumeThunk(candidateId)).unwrap();
       window.open(res.resumeUrl, "_blank", "noopener,noreferrer");
     } catch (error) {
       toast.error(
-        error || "Resume download failed. Maybe daily limit reached."
+        error || "Resume viewed failed. Maybe daily limit reached."
       );
     }
   };
@@ -187,7 +188,7 @@ export default function CandidateProfilePage() {
 
           {candidate && (
             <button
-              onClick={() => handleResumeDownload(candidate._id)}
+              onClick={() => handleResumeView(candidate._id)}
               className="flex items-center gap-2 bg-lime-500 text-white px-4 py-2 rounded-md hover:bg-lime-600"
             >
               <FaDownload /> Resume

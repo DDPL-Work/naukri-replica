@@ -80,6 +80,14 @@ const BulkUpload = () => {
     }
   }, [success]);
 
+  useEffect(() => {
+    if (success && result?.failed > 0) {
+      toast.error(
+        `${result.failed} candidates were skipped due to duplicates or validation issues`
+      );
+    }
+  }, [success, result]);
+
   // ============================================================
   // PARSE EXCEL + MATCH COLUMNS
   // ============================================================
@@ -256,6 +264,57 @@ const BulkUpload = () => {
           )}
         </div>
       </div>
+
+      {success && result?.errors?.length > 0 && (
+        <div className="w-full max-w-[860px] mt-6 rounded-xl border border-yellow-300 bg-yellow-50 shadow-sm">
+          {/* Header */}
+          <div className="flex items-center justify-between px-6 py-4 border-b border-yellow-200">
+            <div className="flex items-center gap-2">
+              <FiAlertCircle className="text-yellow-600" size={20} />
+              <h3 className="text-yellow-900 text-lg font-bold font-[Calibri]">
+                Skipped Rows
+              </h3>
+            </div>
+
+            <span className="text-xs font-semibold px-3 py-1 rounded-full bg-yellow-200 text-yellow-900">
+              {result.errors.length} Skipped
+            </span>
+          </div>
+
+          {/* Body */}
+          <div className="px-6 py-4">
+            <p className="text-sm text-yellow-800 font-[Calibri] mb-3">
+              The following rows were not imported because the candidate already
+              exists or contains invalid data.
+            </p>
+
+            <ul className="space-y-2 max-h-60 overflow-y-auto pr-2">
+              {result.errors.map((e, idx) => (
+                <li
+                  key={idx}
+                  className="flex items-start gap-3 bg-white border border-yellow-200 rounded-md px-4 py-2 text-sm"
+                >
+                  {/* Row badge */}
+                  <span className="min-w-[52px] text-center text-xs font-semibold px-2 py-1 rounded-md bg-yellow-100 text-yellow-900">
+                    Row {e.row}
+                  </span>
+
+                  {/* Message */}
+                  <div className="flex-1 text-zinc-800 font-[Calibri]">
+                    <div className="font-semibold">{e.error}</div>
+
+                    {e.email && (
+                      <div className="text-xs text-zinc-500 mt-0.5">
+                        Email: <span className="font-mono">{e.email}</span>
+                      </div>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
 
       {/* FILE REQUIREMENTS SECTION (MATCHING LOGIC INSIDE HERE) */}
       <div className="w-full max-w-[860px] bg-[#E8EDF5] rounded-[19px] p-6 mt-10">

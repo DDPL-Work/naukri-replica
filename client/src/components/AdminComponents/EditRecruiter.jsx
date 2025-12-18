@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import {
   updateRecruiter,
   listRecruiters,
+  resetRecruiterUpdateState,
 } from "../../features/slices/adminSlice";
 import { FiEye, FiEyeOff } from "react-icons/fi";
 import toast from "react-hot-toast";
@@ -49,9 +50,14 @@ export default function EditRecruiter() {
     }
   }, [recruiters, id]);
 
-  // Listen success / error
+  // RESET update flags ON ENTRY
   useEffect(() => {
-    if (updateSuccess) {
+    dispatch(resetRecruiterUpdateState());
+  }, [dispatch]);
+
+  // React ONLY after a real submit
+  useEffect(() => {
+    if (!updateLoading && updateSuccess) {
       toast.success("Recruiter updated successfully!");
       navigate("/admin/recruiter-management");
     }
@@ -59,7 +65,7 @@ export default function EditRecruiter() {
     if (updateError) {
       toast.error(updateError);
     }
-  }, [updateSuccess, updateError]);
+  }, [updateSuccess, updateError, updateLoading, navigate]);
 
   const changeHandler = (key, value) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
@@ -91,7 +97,6 @@ export default function EditRecruiter() {
 
   return (
     <div className="w-full min-h-screen bg-white px-8">
-
       {/* PAGE HEADER */}
       <div className="w-full flex flex-col text-left mb-2">
         <h1 className="text-black text-4xl font-bold font-serif leading-[60px]">
@@ -104,14 +109,12 @@ export default function EditRecruiter() {
 
       {/* FORM CONTAINER */}
       <div className="w-full max-w-[1038px] bg-white rounded-lg border border-[#E0E5EB] p-6">
-
         <h2 className="text-black text-2xl font-bold font-[Calibri] mb-6">
           Edit Recruiter
         </h2>
 
         <form onSubmit={handleSubmit}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-14 gap-y-10">
-
             {/* Name */}
             <div>
               <label className="block text-black text-sm font-[Calibri] mb-2">
@@ -201,7 +204,6 @@ export default function EditRecruiter() {
                 </span>
               </div>
             </div>
-
           </div>
 
           {/* BUTTONS */}

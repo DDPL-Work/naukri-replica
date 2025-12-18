@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchAnalytics } from "../../features/slices/adminSlice";
 
@@ -100,7 +100,7 @@ const MetricCard = ({ title, value, subtitle, icon: Icon }) => (
   </div>
 );
 
-const TableSection = ({ title, columns, rows }) => {
+const TableSection = ({ title, columns, rows, noMarginTop = false }) => {
   const [visibleCount, setVisibleCount] = useState(10);
 
   const visibleRows = rows.slice(0, visibleCount);
@@ -122,7 +122,11 @@ const TableSection = ({ title, columns, rows }) => {
   // ---------- SINGLE COLUMN MODE ----------
   if (!useTwoColumns) {
     return (
-      <div className="w-full mt-10 bg-white border border-zinc-200 rounded-lg overflow-hidden pb-4">
+      <div
+        className={`w-full bg-white border border-zinc-200 rounded-lg overflow-hidden pb-4 ${
+          noMarginTop ? "" : "mt-10"
+        }`}
+      >
         <div className="p-4 border-b border-zinc-200">
           <h2 className="text-black text-lg font-bold">{title}</h2>
         </div>
@@ -179,8 +183,12 @@ const TableSection = ({ title, columns, rows }) => {
 
   // ---------- TWO COLUMN MODE ----------
   return (
-    <div className="w-full mt-10 bg-white border border-zinc-200 rounded-lg overflow-hidden pb-4">
-      <div className="p-4 border-b border-zinc-200">
+    <div
+      className={`w-full bg-white border border-zinc-200  overflow-hidden pb-4 ${
+        noMarginTop ? "" : "mt-10 rounded-lg"
+      }`}
+    >
+      <div className={`p-4 border-b border-zinc-200 ${noMarginTop ? "hidden":"block"}`}>
         <h2 className="text-black text-lg font-bold">{title}</h2>
       </div>
 
@@ -254,6 +262,9 @@ export default function Analytics() {
   );
 
   const [range, setRange] = useState("7d");
+  const [selectedLocation, setSelectedLocation] = useState("ALL");
+  const [locationQuery, setLocationQuery] = useState("");
+  const [showDropdown, setShowDropdown] = useState(false);
 
   useEffect(() => {
     dispatch(fetchAnalytics({ range }));
@@ -275,6 +286,15 @@ export default function Analytics() {
   const safe = (v) =>
     v === undefined || v === null || v === "" ? "Unknown" : v;
 
+  const locationOptions = [
+    "ALL",
+    ...mergeLocationCounts(locationCounts).map((l) => l.label),
+  ];
+
+  const filteredLocationOptions = locationOptions.filter((loc) =>
+    loc.toLowerCase().includes(locationQuery.toLowerCase())
+  );
+
   // Convert data into table rows
   const locationRows = mergeLocationCounts(locationCounts).map((l) => [
     l.label,
@@ -293,6 +313,32 @@ export default function Analytics() {
     `${e._id} Years`,
     e.count,
   ]);
+
+  const filteredDesignationRows = useMemo(() => {
+    if (!analyticsData?.designationByLocation) return [];
+
+    const normalizedLocation = locationQuery
+      ? locationQuery.toLowerCase()
+      : "ALL";
+
+    const rows =
+      normalizedLocation === "ALL"
+        ? analyticsData.designationByLocation
+        : analyticsData.designationByLocation.filter(
+            (d) => d.location === normalizedLocation
+          );
+
+    const map = new Map();
+
+    rows.forEach(({ designation, count }) => {
+      map.set(designation, (map.get(designation) || 0) + count);
+    });
+
+    return Array.from(map.entries()).map(([designation, count]) => [
+      designation,
+      count,
+    ]);
+  }, [analyticsData, locationQuery]);
 
   if (analyticsLoading) return <div className="p-6">Loading analytics...</div>;
   if (analyticsError)
@@ -335,11 +381,62 @@ export default function Analytics() {
         columns={["Skill", "Total CVs"]}
         rows={skillRows}
       />
-      <TableSection
-        title="Designation Analytics"
-        columns={["Designation", "Total CVs"]}
-        rows={designationRows}
-      />
+
+      {/* Designation Analytics */}
+      <div className="w-full mt-10 bg-white border border-zinc-200 rounded-lg overflow-hidden">
+        {/* HEADER */}
+        <div className="flex items-center justify-between p-4 border-b border-zinc-200">
+          <h2 className="text-black text-lg font-bold">
+            Designation Analytics
+          </h2>
+
+          {/* LOCATION COMBO INPUT */}
+          <div className="relative w-64">
+            <input
+              type="text"
+              value={locationQuery}
+              placeholder="Filter by location"
+              onFocus={() => setShowDropdown(true)}
+              onChange={(e) => {
+                setLocationQuery(e.target.value);
+                setSelectedLocation(e.target.value || "ALL");
+                setShowDropdown(true);
+              }}
+              onBlur={() => {
+                setTimeout(() => setShowDropdown(false), 150);
+              }}
+              className="w-full px-3 py-2 text-sm border border-zinc-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-900"
+            />
+
+            {showDropdown && filteredLocationOptions.length > 0 && (
+              <div className="absolute z-20 mt-1 w-full max-h-48 overflow-y-auto bg-white border border-zinc-300 rounded-md shadow-lg">
+                {filteredLocationOptions.map((loc) => (
+                  <div
+                    key={loc}
+                    onMouseDown={() => {
+                      setSelectedLocation(loc);
+                      setLocationQuery(loc === "ALL" ? "" : loc);
+                      setShowDropdown(false);
+                    }}
+                    className="px-3 py-2 text-sm cursor-pointer hover:bg-blue-900 hover:text-white"
+                  >
+                    {loc}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* TABLE */}
+        <TableSection
+          title=""
+          columns={["Designation", "Total CVs"]}
+          rows={filteredDesignationRows}
+          noMarginTop
+        />
+      </div>
+
       <TableSection
         title="Company Analytics"
         columns={["Company", "Total CVs"]}

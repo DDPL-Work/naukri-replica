@@ -46,8 +46,46 @@ export const updateRecruiter = async (req, res, next) => {
     }
 
     const updated = await user.save();
+    
 
     return res.json({ recruiter: updated });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * Permanently delete recruiter (ADMIN ONLY)
+ */
+export const deleteRecruiter = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    // 1️⃣ Check recruiter exists
+    const recruiter = await User.findOne({ _id: id, role: "RECRUITER" });
+    if (!recruiter) {
+      return res.status(404).json({ error: "Recruiter not found" });
+    }
+
+    // 2️⃣ Delete related download logs
+    await DownloadLog.deleteMany({ userId: id });
+
+    // 3️⃣ Delete activity logs
+    await ActivityLog.deleteMany({ userId: id });
+
+    // 4️⃣ Unassign candidates (DO NOT DELETE candidates)
+    await Candidate.updateMany(
+      { recruiterId: id },
+      { $unset: { recruiterId: "" } }
+    );
+
+    // 5️⃣ Delete recruiter account (HARD DELETE)
+    await User.findByIdAndDelete(id);
+
+    res.json({
+      success: true,
+      message: "Recruiter deleted permanently",
+    });
   } catch (err) {
     next(err);
   }
@@ -74,7 +112,6 @@ export const downloadsSummary = async (req, res, next) => {
     next(err);
   }
 };
-
 
 /**
  * Advanced Analytics Controller
@@ -126,6 +163,57 @@ export const analytics = async (req, res, next) => {
     ]);
 
     // ---------------------------------------
+// DESIGNATION BY LOCATION (NEW)
+// ---------------------------------------
+const designationByLocation = await Candidate.aggregate([
+  {
+    $project: {
+      designation: {
+        $cond: [
+          { $and: [{ $ne: ["$designation", null] }, { $ne: ["$designation", ""] }] },
+          "$designation",
+          "Unknown",
+        ],
+      },
+      location: {
+        $cond: [
+          { $and: [{ $ne: ["$location", null] }, { $ne: ["$location", ""] }] },
+          {
+            $toLower: {
+              $trim: {
+                input: {
+                  $arrayElemAt: [{ $split: ["$location", ","] }, 0],
+                },
+              },
+            },
+          },
+          "unknown",
+        ],
+      },
+    },
+  },
+  {
+    $group: {
+      _id: {
+        designation: "$designation",
+        location: "$location",
+      },
+      count: { $sum: 1 },
+    },
+  },
+  {
+    $project: {
+      _id: 0,
+      designation: "$_id.designation",
+      location: "$_id.location",
+      count: 1,
+    },
+  },
+  { $sort: { designation: 1, count: -1 } },
+]);
+
+
+    // ---------------------------------------
     // COMPANY COUNTS (ALL RECENT COMPANIES)
     // ---------------------------------------
     const companyCounts = await Candidate.aggregate([
@@ -149,18 +237,18 @@ export const analytics = async (req, res, next) => {
     const experienceCounts = await Candidate.aggregate([
       {
         $addFields: {
-          expString: { $toString: "$experience" }
-        }
+          expString: { $toString: "$experience" },
+        },
       },
       {
         $addFields: {
           extracted: {
             $regexFind: {
               input: "$expString",
-              regex: /([0-9]+(\.[0-9]+)?)/  
-            }
-          }
-        }
+              regex: /([0-9]+(\.[0-9]+)?)/,
+            },
+          },
+        },
       },
       {
         $addFields: {
@@ -168,10 +256,10 @@ export const analytics = async (req, res, next) => {
             $cond: [
               { $gt: ["$extracted", null] },
               { $toDouble: "$extracted.match" },
-              null
-            ]
-          }
-        }
+              null,
+            ],
+          },
+        },
       },
       {
         $addFields: {
@@ -179,19 +267,19 @@ export const analytics = async (req, res, next) => {
             $cond: [
               { $eq: ["$parsedExp", null] },
               null,
-              { $floor: "$parsedExp" }
-            ]
-          }
-        }
+              { $floor: "$parsedExp" },
+            ],
+          },
+        },
       },
       { $match: { expYear: { $ne: null } } },
       {
         $group: {
           _id: "$expYear",
-          count: { $sum: 1 }
-        }
+          count: { $sum: 1 },
+        },
       },
-      { $sort: { _id: 1 } }
+      { $sort: { _id: 1 } },
     ]);
 
     // ---------------------------------------
@@ -205,14 +293,89 @@ export const analytics = async (req, res, next) => {
       locationCounts,
       skillCounts,
       designationCounts,
+      designationByLocation,
       companyCounts,
       portalCounts,
       experienceCounts,
     });
-
   } catch (err) {
     console.error("Analytics error:", err);
     next(err);
   }
 };
 
+/**
+ * Recruiter download usage (GLOBAL + PER RECRUITER) — TODAY
+ */
+export const recruiterDownloadUsageToday = async (req, res, next) => {
+  try {
+    // 1️⃣ Today time window
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+
+    const end = new Date();
+    end.setHours(23, 59, 59, 999);
+
+    // 2️⃣ Aggregate downloads per recruiter (today)
+    const usageAgg = await DownloadLog.aggregate([
+      {
+        $match: {
+          downloadedAt: { $gte: start, $lte: end },
+        },
+      },
+      {
+        $group: {
+          _id: "$userId",
+          usedToday: { $sum: 1 },
+        },
+      },
+    ]);
+
+    // Convert to map for fast lookup
+    const usageMap = {};
+    usageAgg.forEach((u) => {
+      usageMap[u._id.toString()] = u.usedToday;
+    });
+
+    // 3️⃣ Fetch recruiters
+    const recruiters = await User.find(
+      { role: "RECRUITER" },
+      "name email dailyDownloadLimit active"
+    ).lean();
+
+    let globalUsed = 0;
+    let globalLimit = 0;
+
+    // 4️⃣ Merge recruiter + usage
+    const recruiterUsage = recruiters.map((r) => {
+      const usedToday = usageMap[r._id.toString()] || 0;
+      const limit = r.dailyDownloadLimit || 0;
+
+      globalUsed += usedToday;
+      globalLimit += limit;
+
+      return {
+        recruiterId: r._id,
+        name: r.name,
+        email: r.email,
+        active: r.active,
+        dailyLimit: limit,
+        usedToday,
+        remainingToday: Math.max(limit - usedToday, 0),
+      };
+    });
+
+    // 5️⃣ Final response
+    res.json({
+      global: {
+        totalLimit: globalLimit,
+        usedToday: globalUsed,
+        remainingToday: Math.max(globalLimit - globalUsed, 0),
+      },
+      recruiters: recruiterUsage,
+      date: start.toISOString().slice(0, 10),
+    });
+  } catch (err) {
+    next(err);
+  }
+};
