@@ -26,8 +26,6 @@ function loadSearchState() {
 
 const savedSearchState = loadSearchState();
 
-
-
 // -----------------------------
 // REAL INITIAL STATE (CORRECT & UNIFIED)
 // -----------------------------
@@ -56,11 +54,13 @@ const initialState = {
       maxExp: "",
       designation: "",
       skills: [],
+      keywords: [],
     },
     page: savedSearchState.page || 1,
     size: savedSearchState.size || 20,
     showResults: savedSearchState.showResults || false,
   },
+  searchCache: {},
 };
 
 // -----------------------------
@@ -73,17 +73,34 @@ function persistSearchState(state) {
 // -------------------------------------------------------------
 // SEARCH CANDIDATES
 // -------------------------------------------------------------
+// export const searchCandidates = createAsyncThunk(
+//   "recruiter/searchCandidates",
+//   async (params = {}, { rejectWithValue }) => {
+//     try {
+//       const res = await API.get("/candidates/search", { params });
+//       return res.data;
+//     } catch (err) {
+//       return rejectWithValue(
+//         err.response?.data?.error || err.response?.data?.message || err.message
+//       );
+//     }
+//   }
+// );
+
 export const searchCandidates = createAsyncThunk(
   "recruiter/searchCandidates",
-  async (params = {}, { rejectWithValue }) => {
+  async ({ params, cacheKey }, { rejectWithValue }) => {
     try {
       const res = await API.get("/candidates/search", { params });
-      return res.data;
+
+      return {
+        cacheKey,
+        results: res.data.results || [],
+        total: res.data.total || 0,
+      };
     } catch (err) {
       return rejectWithValue(
-        err.response?.data?.error ||
-          err.response?.data?.message ||
-          err.message
+        err.response?.data?.error || err.response?.data?.message || err.message
       );
     }
   }
@@ -100,9 +117,7 @@ export const getCandidateById = createAsyncThunk(
       return res.data;
     } catch (err) {
       return rejectWithValue(
-        err.response?.data?.error ||
-          err.response?.data?.message ||
-          err.message
+        err.response?.data?.error || err.response?.data?.message || err.message
       );
     }
   }
@@ -119,9 +134,7 @@ export const updateCandidateFeedback = createAsyncThunk(
       return res.data;
     } catch (err) {
       return rejectWithValue(
-        err.response?.data?.error ||
-          err.response?.data?.message ||
-          err.message
+        err.response?.data?.error || err.response?.data?.message || err.message
       );
     }
   }
@@ -176,8 +189,6 @@ export const viewResumeThunk = createAsyncThunk(
   }
 );
 
-
-
 // -------------------------------------------------------------
 // SLICE
 // -------------------------------------------------------------
@@ -198,6 +209,15 @@ const recruiterSlice = createSlice({
       persistSearchState(state);
     },
 
+    restoreFromCache(state, action) {
+      const { cacheKey } = action.payload;
+      const cached = state.searchCache[cacheKey];
+      if (!cached) return;
+
+      state.searchResults = cached.results;
+      state.searchTotal = cached.total;
+    },
+
     // ⭐ Reset search filters & UI
     resetSearchState(state) {
       state.searchState = {
@@ -208,6 +228,7 @@ const recruiterSlice = createSlice({
           maxExp: "",
           designation: "",
           skills: [],
+          keywords: [],
         },
         page: 1,
         size: 20,
@@ -233,9 +254,19 @@ const recruiterSlice = createSlice({
       })
       .addCase(searchCandidates.fulfilled, (state, action) => {
         state.searchLoading = false;
-        state.searchResults = action.payload.results || [];
-        state.searchTotal = action.payload.total || 0;
-        persistSearchState(state);
+
+        const { cacheKey, results, total } = action.payload;
+
+        state.searchResults = results || [];
+        state.searchTotal = total || 0;
+
+        state.searchCache[cacheKey] = {
+          results: state.searchResults,
+          total: state.searchTotal,
+          timestamp: Date.now(),
+        };
+
+        // persistSearchState(state);
       })
       .addCase(searchCandidates.rejected, (state, action) => {
         state.searchLoading = false;
@@ -304,6 +335,7 @@ export const {
   resetCandidateState,
   resetSearchState,
   setSearchState,
+  restoreFromCache,
   clearDownloadError,
 } = recruiterSlice.actions;
 

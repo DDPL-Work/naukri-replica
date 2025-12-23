@@ -243,7 +243,7 @@ export default function CandidateProfilePage() {
       </div>
 
       {/* CONTACT INFORMATION */}
-      <div className="border border-gray-200 rounded-xl bg-white shadow-sm p-6">
+      {/* <div className="border border-gray-200 rounded-xl bg-white shadow-sm p-6">
         <h2 className="text-xl font-semibold mb-4">Contact Information</h2>
 
         <div className="space-y-3">
@@ -257,7 +257,7 @@ export default function CandidateProfilePage() {
             {candidate.mobile || "Not Provided"}
           </p>
         </div>
-      </div>
+      </div> */}
 
       {/* EDUCATION */}
       <div className="border border-gray-200 rounded-xl bg-white shadow-sm p-6">
