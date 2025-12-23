@@ -3,7 +3,12 @@ import { useDispatch, useSelector } from "react-redux";
 import { FaSearch, FaFilter } from "react-icons/fa";
 import { useLocation } from "react-router-dom";
 import ProfileCard from "../../components/RecruiterComponents/CandidateProfileCard";
-import { searchCandidates } from "../../features/slices/recruiterSlice";
+import {
+  resetSearchState,
+  restoreFromCache,
+  searchCandidates,
+  setSearchState,
+} from "../../features/slices/recruiterSlice";
 import { LuX } from "react-icons/lu";
 import toast from "react-hot-toast";
 
@@ -12,6 +17,7 @@ export default function CandidateSearch() {
   const location = useLocation();
 
   const searchBarRef = useRef(null);
+  const isRestoringRef = useRef(false);
 
   const Label = ({ children }) => (
     <label className="text-sm font-['Lato'] text-black">
@@ -22,7 +28,7 @@ export default function CandidateSearch() {
 
   const prefillQuery = location.state?.prefill || null;
 
-  const { searchLoading, searchError, searchResults } = useSelector(
+  const { searchLoading, searchError } = useSelector(
     (state) => state.recruiter
   );
 
@@ -87,8 +93,33 @@ export default function CandidateSearch() {
   const [locationQuery, setLocationQuery] = useState("");
   const [keywordInput, setKeywordInput] = useState("");
 
+  const buildCacheKey = (filters, page, size) =>
+    JSON.stringify({
+      ...normalizeFilters(filters),
+      page,
+      size,
+    });
+
+  const normalizeFilters = (f) => ({
+    searchText: f.searchText || "",
+    location: f.location || "",
+    minExp: f.minExp || "",
+    maxExp: f.maxExp || "",
+    designation: f.designation || "",
+    skills: Array.isArray(f.skills) ? f.skills : [],
+    keywords: Array.isArray(f.keywords) ? f.keywords : [],
+  });
+
   const filteredSkills = staticSkills.filter((skill) =>
     skill.toLowerCase().includes(skillSearch.toLowerCase())
+  );
+
+  const persistedSearchState = useSelector(
+    (state) => state.recruiter.searchState
+  );
+
+  const { searchState, searchCache, searchResults } = useSelector(
+    (state) => state.recruiter
   );
 
   const handleAddNewSkill = (skill) => {
@@ -114,12 +145,16 @@ export default function CandidateSearch() {
     const keyword = value.trim().toLowerCase();
     if (!keyword) return;
 
-    if (!filters.keywords.includes(keyword)) {
-      setFilters((prev) => ({
+    setFilters((prev) => {
+      const prevKeywords = Array.isArray(prev.keywords) ? prev.keywords : [];
+
+      if (prevKeywords.includes(keyword)) return prev;
+
+      return {
         ...prev,
-        keywords: [...prev.keywords, keyword],
-      }));
-    }
+        keywords: [...prevKeywords, keyword],
+      };
+    });
 
     setKeywordInput("");
   };
@@ -127,7 +162,9 @@ export default function CandidateSearch() {
   const handleRemoveKeyword = (keyword) => {
     setFilters((prev) => ({
       ...prev,
-      keywords: prev.keywords.filter((k) => k !== keyword),
+      keywords: Array.isArray(prev.keywords)
+        ? prev.keywords.filter((k) => k !== keyword)
+        : [],
     }));
   };
 
@@ -150,14 +187,18 @@ export default function CandidateSearch() {
       filters.minExp !== "" ||
       filters.maxExp !== "" ||
       filters.designation.trim() ||
-      filters.skills.length > 0 ||
-      filters.keywords.length > 0 ||
+      (Array.isArray(filters.skills) && filters.skills.length > 0) ||
+      (Array.isArray(filters.keywords) && filters.keywords.length > 0) ||
       keywordInput.trim()
     );
   };
 
   // SEARCH HANDLER WITH PAGINATION
-  const handleSearch = (prefillParams = null, newPage = page) => {
+  const handleSearch = (
+    prefillParams = null,
+    newPage = page,
+    shouldPersist = true
+  ) => {
     if (!prefillParams && !hasAnySearchInput()) {
       toast.error("Please enter at least one search criteria");
       return;
@@ -169,13 +210,48 @@ export default function CandidateSearch() {
       minExp: filters.minExp !== "" ? filters.minExp : undefined,
       maxExp: filters.maxExp !== "" ? filters.maxExp : undefined,
       designation: filters.designation || undefined,
-      skills: filters.skills.length > 0 ? filters.skills : undefined,
-       keywords: filters.keywords.length > 0 ? filters.keywords : undefined,
+      skills:
+        Array.isArray(filters.skills) && filters.skills.length > 0
+          ? filters.skills
+          : undefined,
+
+      keywords:
+        Array.isArray(filters.keywords) && filters.keywords.length > 0
+          ? filters.keywords
+          : undefined,
+
       page: newPage,
       size,
     };
 
-    dispatch(searchCandidates(params))
+    const cacheKey = buildCacheKey(filters, newPage, size);
+
+    // ✅ CHECK CACHE FIRST
+    // const cached = persistedSearchState?.cache?.[cacheKey];
+    const cached = searchCache[cacheKey];
+
+    if (cached) {
+      dispatch(restoreFromCache({ cacheKey }));
+      // dispatch(
+      //   setSearchState({
+      //     filters: normalizeFilters(filters),
+      //     page: newPage,
+      //     size,
+      //     showResults: true,
+      //   })
+      // );
+      setShowResults(true);
+      setTotalPages(Math.ceil(cached.total / size));
+      // Restore results from cache
+      return;
+    }
+
+    dispatch(
+      searchCandidates({
+        params,
+        cacheKey,
+      })
+    )
       .unwrap()
       .then((res) => {
         const total = res.total || res.hits?.total?.value || 0;
@@ -186,6 +262,96 @@ export default function CandidateSearch() {
     setShowResults(true);
   };
 
+  const recruiterState = useSelector((state) => state.recruiter);
+
+  useEffect(() => {
+    console.log("🟢 REDUX STATE ON RENDER:", recruiterState);
+  }, [recruiterState]);
+
+  useEffect(() => {
+    console.log("🔵 RESTORE EFFECT RUNNING");
+
+    if (!persistedSearchState?.showResults) {
+      console.log("🔴 NO persistedSearchState.showResults");
+      return;
+    }
+    console.log(
+      "🟢 RESTORING FILTERS FROM REDUX:",
+      persistedSearchState.filters
+    );
+    // 🔁 Restore filters into local UI state
+    setFilters(normalizeFilters(persistedSearchState.filters));
+    setPage(persistedSearchState.page || 1);
+    setShowResults(true);
+  }, []);
+
+  useEffect(() => {
+    console.log("🟣 CACHE EFFECT RUNNING");
+    // if (!persistedSearchState?.showResults) return;
+    if (!persistedSearchState?.showResults) {
+      console.log("🔴 CACHE: showResults false");
+      return;
+    }
+
+    const restoredFilters = normalizeFilters(persistedSearchState.filters);
+
+    const cacheKey = buildCacheKey(
+      restoredFilters,
+      persistedSearchState.page || 1,
+      size
+    );
+    console.log("🟣 CACHE KEY:", cacheKey);
+    console.log("🟣 CACHE ENTRY:", searchCache[cacheKey]);
+
+    const cached = searchCache[cacheKey];
+
+    // ✅ CACHE HIT → RESTORE UI ONLY
+    if (cached) {
+      setFilters(restoredFilters);
+      setPage(persistedSearchState.page || 1);
+      setShowResults(true);
+      console.log("🟢 CACHE HIT → restoring results only");
+      setTotalPages(Math.ceil(cached.total / size));
+      return;
+    }
+
+    // ❌ CACHE MISS → API CALL
+    console.log("🟡 CACHE MISS → API CALL");
+    isRestoringRef.current = true;
+
+    // setFilters(restoredFilters);
+    // setPage(persistedSearchState.page || 1);
+    setShowResults(true);
+
+    requestAnimationFrame(() => {
+      handleSearch(
+        {
+          q: restoredFilters.searchText || undefined,
+          location: restoredFilters.location || undefined,
+          minExp: restoredFilters.minExp || undefined,
+          maxExp: restoredFilters.maxExp || undefined,
+          designation: restoredFilters.designation || undefined,
+          skills: restoredFilters.skills.length
+            ? restoredFilters.skills
+            : undefined,
+          keywords: restoredFilters.keywords.length
+            ? restoredFilters.keywords
+            : undefined,
+          page: persistedSearchState.page || 1,
+          size,
+        },
+        persistedSearchState.page || 1,
+        false
+      );
+
+      isRestoringRef.current = false;
+    });
+  }, []);
+
+  useEffect(() => {
+    console.log("🧪 FILTER STATE CHANGED:", filters);
+  }, [filters]);
+
   useEffect(() => {
     setDesignationQuery(filters.designation || "");
   }, [filters.designation]);
@@ -195,7 +361,13 @@ export default function CandidateSearch() {
   }, [filters.location]);
 
   useEffect(() => {
-    if (showResults) handleSearch(null, page);
+    if (!showResults) return;
+    if (isRestoringRef.current) return;
+
+    const cacheKey = buildCacheKey(filters, page, size);
+    if (searchCache[cacheKey]) return;
+
+    handleSearch(null, page);
   }, [page]);
 
   useEffect(() => {
@@ -210,24 +382,48 @@ export default function CandidateSearch() {
     }
   }, [searchResults]);
 
-  useEffect(() => {
-    if (prefillQuery) {
-      setFilters({
-        searchText: prefillQuery.q || "",
-        location: prefillQuery.location || "",
-        minExp: prefillQuery.minExp || "",
-        maxExp: prefillQuery.maxExp || "",
-        designation: prefillQuery.designation || "",
-        skills: Array.isArray(prefillQuery.skills)
-          ? prefillQuery.skills
-          : prefillQuery.skills
-          ? [prefillQuery.skills]
-          : [],
-      });
+  // useEffect(() => {
+  //   if (prefillQuery) {
+  //     setFilters({
+  //       searchText: prefillQuery.q || "",
+  //       location: prefillQuery.location || "",
+  //       minExp: prefillQuery.minExp || "",
+  //       maxExp: prefillQuery.maxExp || "",
+  //       designation: prefillQuery.designation || "",
+  //       skills: Array.isArray(prefillQuery.skills)
+  //         ? prefillQuery.skills
+  //         : prefillQuery.skills
+  //         ? [prefillQuery.skills]
+  //         : [],
+  //     });
 
-      setPage(prefillQuery.page || 1);
-      handleSearch(prefillQuery, prefillQuery.page || 1);
-    }
+  //     setPage(prefillQuery.page || 1);
+  //     handleSearch(prefillQuery, prefillQuery.page || 1);
+  //   }
+  // }, [prefillQuery]);
+
+  useEffect(() => {
+    // 🚫 Do NOT override restored filters on back navigation
+    if (!prefillQuery || persistedSearchState?.showResults) return;
+
+    console.log("🟠 APPLYING PREFILL QUERY:", prefillQuery);
+
+    setFilters({
+      searchText: prefillQuery.q || "",
+      location: prefillQuery.location || "",
+      minExp: prefillQuery.minExp || "",
+      maxExp: prefillQuery.maxExp || "",
+      designation: prefillQuery.designation || "",
+      skills: Array.isArray(prefillQuery.skills)
+        ? prefillQuery.skills
+        : prefillQuery.skills
+        ? [prefillQuery.skills]
+        : [],
+      keywords: [],
+    });
+
+    setPage(prefillQuery.page || 1);
+    handleSearch(prefillQuery, prefillQuery.page || 1);
   }, [prefillQuery]);
 
   const skillsRef = useRef(null);
@@ -311,8 +507,29 @@ export default function CandidateSearch() {
         </div>
 
         <button
+          // onClick={() => {
+          //   setPage(1);
+          //   dispatch(
+          //     setSearchState({
+          //       filters: normalizeFilters(filters),
+          //       page: 1,
+          //       size,
+          //       showResults: true,
+          //     })
+          //   );
+          //   handleSearch(null, 1);
+          // }}
           onClick={() => {
-            setPage(1);
+            const payload = {
+              filters: normalizeFilters(filters),
+              page: 1,
+              size,
+              showResults: true,
+            };
+
+            console.log("🟡 SAVING SEARCH STATE:", payload);
+
+            dispatch(setSearchState(payload));
             handleSearch(null, 1);
           }}
           className="bg-lime-400 text-black px-5 py-2 rounded-md flex items-center gap-2"
@@ -454,7 +671,8 @@ export default function CandidateSearch() {
                     className="w-full bg-stone-50 outline outline-zinc-200 rounded-md px-3 py-2 cursor-pointer text-sm text-zinc-600"
                     onClick={() => setShowSkillsDropdown((prev) => !prev)}
                   >
-                    {filters.skills.length === 0
+                    {!Array.isArray(filters.skills) ||
+                    filters.skills.length === 0
                       ? "Select or add skill..."
                       : "Edit skills"}
                   </div>
@@ -501,7 +719,7 @@ export default function CandidateSearch() {
                 </div>
 
                 {/* RIGHT: SELECTED SKILLS */}
-                {filters.skills.length > 0 && (
+                {Array.isArray(filters.skills) && filters.skills.length > 0 && (
                   <div className="flex flex-wrap gap-2 max-w-[300px] max-h-24 overflow-y-auto">
                     {filters.skills.map((skill) => (
                       <span
@@ -543,25 +761,26 @@ export default function CandidateSearch() {
                 />
 
                 {/* Keyword Chips */}
-                {filters.keywords.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {filters.keywords.map((kw) => (
-                      <span
-                        key={kw}
-                        className="px-3 py-1 bg-purple-100 text-purple-800 text-xs rounded-full flex items-center gap-2"
-                      >
-                        {kw}
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveKeyword(kw)}
-                          className="font-bold"
+                {Array.isArray(filters.keywords) &&
+                  filters.keywords.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {filters.keywords.map((kw) => (
+                        <span
+                          key={kw}
+                          className="px-3 py-1 bg-purple-100 text-purple-800 text-xs rounded-full flex items-center gap-2"
                         >
-                          <LuX size={12} />
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
+                          {kw}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveKeyword(kw)}
+                            className="font-bold"
+                          >
+                            <LuX size={12} />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
               </div>
             </div>
           </div>
@@ -570,6 +789,14 @@ export default function CandidateSearch() {
             <button
               onClick={() => {
                 setPage(1);
+                dispatch(
+                  setSearchState({
+                    filters: normalizeFilters(filters),
+                    page: 1,
+                    size,
+                    showResults: true,
+                  })
+                );
                 handleSearch(null, 1);
               }}
               className="bg-lime-400 px-4 py-2 text-black rounded-md"
@@ -578,7 +805,21 @@ export default function CandidateSearch() {
             </button>
 
             <button
-              onClick={() => window.location.reload()}
+              onClick={() => {
+                console.log("🔴 RESET CLICKED — CLEARING FILTERS");
+                dispatch(resetSearchState());
+                setFilters({
+                  searchText: "",
+                  location: "",
+                  minExp: "",
+                  maxExp: "",
+                  designation: "",
+                  skills: [],
+                  keywords: [],
+                });
+                setPage(1);
+                setShowResults(false);
+              }}
               className="bg-stone-50 outline outline-zinc-200 px-4 py-2 text-zinc-500 rounded-md"
             >
               Reset
@@ -594,7 +835,16 @@ export default function CandidateSearch() {
           {searchError && <p className="text-red-500">{searchError}</p>}
 
           {formattedResults?.map((item) => (
-            <ProfileCard key={item._id} data={item} />
+            <ProfileCard
+              key={item._id}
+              data={item}
+              searchState={{
+                filters,
+                page,
+                size,
+                showResults,
+              }}
+            />
           ))}
 
           {!searchLoading && formattedResults?.length === 0 && (
